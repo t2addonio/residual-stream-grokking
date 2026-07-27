@@ -3,16 +3,23 @@
 positive_control_fourier.py
 
 Test D — Positive Control
-Show that the measurement pipeline can recover known Nanda-style Fourier features.
+Goal: Show that our measurement pipeline CAN recover the known
+Nanda-style Fourier features when they are present.
+
+We extract Fourier-like directions from a grokked model using
+a standard linear-probe / least-squares method and check stability.
 """
 
 import torch
+import torch.nn.functional as F
+import numpy as np
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 from pathlib import Path
 import json
 from datetime import datetime
 import argparse
 
+# ───────────────────────── Config ─────────────────────────
 P = 113
 K_DIMS = 16
 LAYER = 1
@@ -20,20 +27,27 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 RESULTS_DIR = Path("results_positive_control")
 RESULTS_DIR.mkdir(exist_ok=True)
 
-
+# ───────────────────────── Model & Data ─────────────────────────
 def make_model(d_model: int, seed: int = 0):
     torch.manual_seed(seed)
     if d_model == 256:
         n_heads, d_head, d_mlp = 4, 64, 1024
     else:
         n_heads, d_head, d_mlp = 4, 32, 512
+
     cfg = HookedTransformerConfig(
-        n_layers=2, d_model=d_model, n_heads=n_heads, d_head=d_head,
-        d_mlp=d_mlp, act_fn="relu", normalization_type=None,
-        d_vocab=P, n_ctx=2, device=DEVICE,
+        n_layers=2,
+        d_model=d_model,
+        n_heads=n_heads,
+        d_head=d_head,
+        d_mlp=d_mlp,
+        act_fn="relu",
+        normalization_type=None,
+        d_vocab=P,
+        n_ctx=2,
+        device=DEVICE,
     )
     return HookedTransformer(cfg)
-
 
 def make_dataset():
     a = torch.arange(P)
@@ -43,9 +57,11 @@ def make_dataset():
     y = ((aa + bb) % P).flatten()
     return x, y
 
-
+# ───────────────────────── Fourier helpers ─────────────────────────
 def construct_synthetic_fourier_targets(x, k_max=8):
-    a, b = x[:, 0].float(), x[:, 1].float()
+    """Classic trigonometric features used as targets."""
+    a = x[:, 0].float()
+    b = x[:, 1].float()
     s = (a + b) % P
     feats = []
     for k in range(1, k_max + 1):
@@ -55,52 +71,72 @@ def construct_synthetic_fourier_targets(x, k_max=8):
             feats.append(torch.sin(angle))
     return torch.stack(feats, dim=1).to(DEVICE)
 
-
 @torch.no_grad()
 def extract_fourier_subspace_from_model(model, x, k_out=K_DIMS, k_max=8, layer=LAYER):
+    """
+    Standard linear-probe style extraction:
+    Find residual-stream directions that best read out the
+    classic Fourier features via least squares.
+    """
     model.eval()
     n = min(4096, len(x))
     xb = x[:n].to(DEVICE)
     targets = construct_synthetic_fourier_targets(xb, k_max=k_max)
+
     _, cache = model.run_with_cache(xb)
     resid = cache[f"blocks.{layer}.hook_resid_post"].mean(1)
     resid = resid - resid.mean(0, keepdim=True)
     targets = targets - targets.mean(0, keepdim=True)
-    W = torch.linalg.lstsq(resid, targets).solution
+
+    # Least squares: resid @ W ≈ targets
+    W = torch.linalg.lstsq(resid, targets).solution          # (d_model, n_features)
     U, S, _ = torch.linalg.svd(W, full_matrices=False)
-    basis = U[:, :k_out].T
+    basis = U[:, :k_out].T                                   # (k_out, d_model)
     basis = torch.linalg.qr(basis.T, mode="reduced")[0].T
     return basis, S[:k_out].cpu().numpy()
 
-
 def subspace_overlap(A, B):
+    """Sum of squared cosines of principal angles (0 = orthogonal, 1 = identical)."""
     M = A @ B.T
     _, S, _ = torch.linalg.svd(M)
     return (S ** 2).sum().item() / min(A.shape[0], B.shape[0])
 
-
+# ───────────────────────── Main ─────────────────────────
 def run_positive_control(checkpoint_path, d_model, seed):
     print(f"\n===== Positive Control | seed {seed} | d_model={d_model} =====")
+    print(f"Loading {checkpoint_path}")
+
     model = make_model(d_model, seed).to(DEVICE)
     model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE))
     model.eval()
+
     x, y = make_dataset()
 
-    print("Extracting Fourier subspace (subset 1)...")
-    fourier_1, singular_values = extract_fourier_subspace_from_model(model, x)
-    print("Extracting Fourier subspace (subset 2)...")
-    fourier_2, _ = extract_fourier_subspace_from_model(model, x[1000:])
+    # Extract Fourier directions from the *grokked* model (first subset)
+    print("Extracting Fourier subspace from grokked model (subset 1)...")
+    fourier_from_model, singular_values = extract_fourier_subspace_from_model(
+        model, x, k_out=K_DIMS, k_max=8
+    )
 
-    overlap_stability = subspace_overlap(fourier_1, fourier_2)
-    print(f"  Stability overlap = {overlap_stability:.4f}")
+    # Second extraction on a different subset for stability check
+    print("Extracting Fourier subspace (subset 2)...")
+    fourier_from_model_2, _ = extract_fourier_subspace_from_model(
+        model, x[1000:], k_out=K_DIMS, k_max=8
+    )
+
+    overlap_stability = subspace_overlap(fourier_from_model, fourier_from_model_2)
+    print(f"  Stability (two different subsets) overlap = {overlap_stability:.4f}")
     print(f"  Top singular values: {singular_values[:8]}")
 
     result = {
-        "seed": seed, "d_model": d_model, "checkpoint": str(checkpoint_path),
+        "seed": seed,
+        "d_model": d_model,
+        "checkpoint": str(checkpoint_path),
         "stability_overlap": float(overlap_stability),
         "top_singular_values": singular_values.tolist(),
-        "note": "High stability_overlap (>0.7) indicates the pipeline reliably recovers consistent Fourier directions."
+        "note": "High stability_overlap (>0.7) indicates the pipeline reliably recovers consistent Fourier directions from the grokked model."
     }
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = RESULTS_DIR / f"positive_control_d{d_model}_seed{seed}_{stamp}.json"
     with open(out_path, "w") as f:
@@ -108,11 +144,11 @@ def run_positive_control(checkpoint_path, d_model, seed):
     print(f"Saved → {out_path}")
     return result
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--d_model", type=int, required=True, choices=[128, 256])
     parser.add_argument("--seed", type=int, required=True)
     args = parser.parse_args()
+
     run_positive_control(args.checkpoint, args.d_model, args.seed)

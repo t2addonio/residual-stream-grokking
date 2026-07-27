@@ -2,8 +2,13 @@
 """
 run_discovery_check.py
 
-Full discovery pipeline for modular addition:
-  train → contrastive subspace → Fourier control → overlap → causal ablation
+Tier-1 discovery validation:
+- Train model (d_model = 128 or 256)
+- Extract contrastive subspace
+- Construct / extract Fourier subspace (synthetic + linear probe)
+- Measure geometric overlap
+- Causal cancellation: mem, fourier, union, random
+- Save full JSON per seed
 """
 
 import argparse
@@ -14,6 +19,7 @@ import torch
 import torch.nn.functional as F
 from transformer_lens import HookedTransformer, HookedTransformerConfig
 
+# ───────────────────────── Global defaults ─────────────────────────
 P = 113
 K_DIMS = 16
 LAYER = 1
@@ -23,21 +29,29 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 RESULTS_DIR = Path("results_discovery")
 RESULTS_DIR.mkdir(exist_ok=True)
 
-
+# ───────────────────────── Model factory ─────────────────────────
 def make_model(d_model: int, seed: int):
     torch.manual_seed(seed)
     if d_model == 256:
         n_heads, d_head, d_mlp = 4, 64, 1024
-    else:
+    else:  # 128
         n_heads, d_head, d_mlp = 4, 32, 512
+
     cfg = HookedTransformerConfig(
-        n_layers=2, d_model=d_model, n_heads=n_heads, d_head=d_head,
-        d_mlp=d_mlp, act_fn="relu", normalization_type=None,
-        d_vocab=P, n_ctx=2, device=DEVICE,
+        n_layers=2,
+        d_model=d_model,
+        n_heads=n_heads,
+        d_head=d_head,
+        d_mlp=d_mlp,
+        act_fn="relu",
+        normalization_type=None,
+        d_vocab=P,
+        n_ctx=2,
+        device=DEVICE,
     )
     return HookedTransformer(cfg)
 
-
+# ───────────────────────── Data ─────────────────────────
 def make_dataset():
     a = torch.arange(P)
     b = torch.arange(P)
@@ -46,7 +60,6 @@ def make_dataset():
     y = ((aa + bb) % P).flatten()
     return x, y
 
-
 def split_dataset(x, y, seed, train_frac=0.5):
     n = len(x)
     g = torch.Generator().manual_seed(seed)
@@ -54,16 +67,17 @@ def split_dataset(x, y, seed, train_frac=0.5):
     n_train = int(n * train_frac)
     return (x[perm[:n_train]], y[perm[:n_train]]), (x[perm[n_train:]], y[perm[n_train:]])
 
-
+# ───────────────────────── Subspace helpers ─────────────────────────
 @torch.no_grad()
-def extract_contrastive_subspace(model, train_x, test_x, layer=LAYER, k=K_DIMS):
+def extract_contrastive_subspace(model, train_x, test_x, d_model, k=K_DIMS):
     model.eval()
     n = min(2048, len(train_x), len(test_x))
-    tr, te = train_x[:n].to(DEVICE), test_x[:n].to(DEVICE)
+    tr = train_x[:n].to(DEVICE)
+    te = test_x[:n].to(DEVICE)
     _, cache_tr = model.run_with_cache(tr)
     _, cache_te = model.run_with_cache(te)
-    resid_tr = cache_tr[f"blocks.{layer}.hook_resid_post"].mean(1)
-    resid_te = cache_te[f"blocks.{layer}.hook_resid_post"].mean(1)
+    resid_tr = cache_tr[f"blocks.{LAYER}.hook_resid_post"].mean(1)
+    resid_te = cache_te[f"blocks.{LAYER}.hook_resid_post"].mean(1)
     resid_tr = resid_tr - resid_tr.mean(0, keepdim=True)
     resid_te = resid_te - resid_te.mean(0, keepdim=True)
     contrast = resid_tr.mean(0) - resid_te.mean(0)
@@ -73,9 +87,9 @@ def extract_contrastive_subspace(model, train_x, test_x, layer=LAYER, k=K_DIMS):
     basis = torch.linalg.qr(basis.T, mode="reduced")[0].T
     return basis
 
-
 def construct_fourier_targets(x, k_max=8):
-    a, b = x[:, 0].float(), x[:, 1].float()
+    a = x[:, 0].float()
+    b = x[:, 1].float()
     s = (a + b) % P
     feats = []
     for k in range(1, k_max + 1):
@@ -85,15 +99,14 @@ def construct_fourier_targets(x, k_max=8):
             feats.append(torch.sin(angle))
     return torch.stack(feats, dim=1).to(DEVICE)
 
-
 @torch.no_grad()
-def extract_fourier_subspace(model, x, layer=LAYER, k_out=K_DIMS, k_max=8):
+def extract_fourier_subspace(model, x, k_out=K_DIMS, k_max=8):
     model.eval()
     n = min(4096, len(x))
     xb = x[:n].to(DEVICE)
     targets = construct_fourier_targets(xb, k_max=k_max)
     _, cache = model.run_with_cache(xb)
-    resid = cache[f"blocks.{layer}.hook_resid_post"].mean(1)
+    resid = cache[f"blocks.{LAYER}.hook_resid_post"].mean(1)
     resid = resid - resid.mean(0, keepdim=True)
     targets = targets - targets.mean(0, keepdim=True)
     W = torch.linalg.lstsq(resid, targets).solution
@@ -102,20 +115,18 @@ def extract_fourier_subspace(model, x, layer=LAYER, k_out=K_DIMS, k_max=8):
     basis = torch.linalg.qr(basis.T, mode="reduced")[0].T
     return basis
 
-
 @torch.no_grad()
 def make_random_subspace(k, d):
     A = torch.randn(k, d, device=DEVICE)
     Q, _ = torch.linalg.qr(A.T, mode="reduced")
     return Q.T
 
-
 def subspace_overlap(A, B):
     M = A @ B.T
     _, S, _ = torch.linalg.svd(M)
     return (S ** 2).sum().item() / min(A.shape[0], B.shape[0])
 
-
+# ───────────────────────── Hooks & Eval ─────────────────────────
 def make_cancel_hook(B, coeff=2.0):
     B = B.detach()
     def hook_fn(resid, hook):
@@ -123,7 +134,6 @@ def make_cancel_hook(B, coeff=2.0):
         proj = (flat @ B.T) @ B
         return (flat - coeff * proj).reshape(resid.shape)
     return hook_fn
-
 
 @torch.no_grad()
 def evaluate(model, test_x, test_y, hook=None):
@@ -137,16 +147,18 @@ def evaluate(model, test_x, test_y, hook=None):
     acc = (logits[:, -1].argmax(-1) == test_y.to(DEVICE)).float().mean().item()
     return loss, acc
 
-
+# ───────────────────────── Core runner ─────────────────────────
 def run_one(seed, d_model, lr=1e-3, weight_decay=1.0):
-    print(f"\n===== Addition | Seed {seed} | d_model={d_model} =====")
+    print(f"\n===== Seed {seed} | d_model={d_model} =====")
     torch.manual_seed(seed)
+
     x, y = make_dataset()
     (train_x, train_y), (test_x, test_y) = split_dataset(x, y, seed)
 
     model = make_model(d_model, seed).to(DEVICE)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+    # Train
     for step in range(MAX_STEPS):
         model.train()
         idx = torch.randint(0, len(train_x), (BATCH_SIZE,))
@@ -156,6 +168,7 @@ def run_one(seed, d_model, lr=1e-3, weight_decay=1.0):
         opt.zero_grad()
         loss.backward()
         opt.step()
+
         if step % 2000 == 0 or step == MAX_STEPS - 1:
             tl, ta = evaluate(model, test_x, test_y)
             print(f"  step {step:5d}  test_loss={tl:.3f}  acc={ta:.3f}")
@@ -165,31 +178,42 @@ def run_one(seed, d_model, lr=1e-3, weight_decay=1.0):
 
     final_loss, final_acc = evaluate(model, test_x, test_y)
     grokked = final_loss < 0.8
+
     result = {
-        "seed": seed, "d_model": d_model, "task": "addition",
-        "final_test_loss": final_loss, "final_test_acc": final_acc,
-        "grokked": grokked, "overlap": None, "causal": None,
+        "seed": seed,
+        "d_model": d_model,
+        "final_test_loss": final_loss,
+        "final_test_acc": final_acc,
+        "grokked": grokked,
+        "overlap": None,
+        "causal": None,
     }
+
     if not grokked:
         print("  Did not grok – skipping causal tests")
         return result
 
-    ckpt = RESULTS_DIR / f"grokked_d{d_model}_seed{seed}.pt"
-    torch.save(model.state_dict(), ckpt)
-    print(f"  Saved checkpoint → {ckpt}")
+    # Save checkpoint
+    ckpt_path = RESULTS_DIR / f"grokked_d{d_model}_seed{seed}.pt"
+    torch.save(model.state_dict(), ckpt_path)
+    print(f"  Saved checkpoint → {ckpt_path}")
 
+    # Extract subspaces
     print("  Extracting subspaces...")
-    mem_B = extract_contrastive_subspace(model, train_x, test_x)
+    mem_B = extract_contrastive_subspace(model, train_x, test_x, d_model)
     fourier_B = extract_fourier_subspace(model, train_x)
+
     overlap = subspace_overlap(mem_B, fourier_B)
     print(f"  Overlap = {overlap:.5f}")
 
+    # Causal tests
     union_B = torch.cat([mem_B, fourier_B], dim=0)
     union_B = torch.linalg.qr(union_B.T, mode="reduced")[0].T
     rand_B = make_random_subspace(mem_B.shape[0] + fourier_B.shape[0], d_model)
 
     causal = {}
-    for name, B in [("mem", mem_B), ("fourier", fourier_B), ("union", union_B), ("random", rand_B)]:
+    for name, B in [("mem", mem_B), ("fourier", fourier_B),
+                    ("union", union_B), ("random", rand_B)]:
         causal[name] = {}
         for coeff in [0.0, 1.0, 2.0]:
             hook = make_cancel_hook(B, coeff)
@@ -197,13 +221,15 @@ def run_one(seed, d_model, lr=1e-3, weight_decay=1.0):
             causal[name][str(coeff)] = {"loss": loss, "acc": acc}
             print(f"  {name:8s} c={coeff:.1f} → acc={acc:.3f}")
 
+    # Recovery
     loss_r, acc_r = evaluate(model, test_x, test_y)
     causal["recovery"] = {"loss": loss_r, "acc": acc_r}
+
     result["overlap"] = overlap
     result["causal"] = causal
     return result
 
-
+# ───────────────────────── Main ─────────────────────────
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--d_model", type=int, required=True, choices=[128, 256])
@@ -217,12 +243,14 @@ def main():
     for seed in range(args.start, args.end + 1):
         r = run_one(seed, args.d_model, lr=args.lr, weight_decay=args.wd)
         all_results.append(r)
+
+        # Save intermediate
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         out = RESULTS_DIR / f"discovery_d{args.d_model}_{args.start}_{args.end}_{stamp}.json"
         with open(out, "w") as f:
             json.dump(all_results, f, indent=2)
-    print(f"\nFinished. Results in {RESULTS_DIR}/")
 
+    print(f"\nFinished. Results saved in {RESULTS_DIR}/")
 
 if __name__ == "__main__":
     main()
