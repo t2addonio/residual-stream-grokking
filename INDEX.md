@@ -1,6 +1,6 @@
 # Index — residual-stream-grokking
 
-Catalog of this repository and of companion working-store artifacts (2026-09-05).
+Catalog of this repository and of companion working-store artifacts (2026-09-05, updated 2026-09-08).
 
 ## Companion repositories
 
@@ -18,6 +18,7 @@ Catalog of this repository and of companion working-store artifacts (2026-09-05)
 - `papers/FIGURES.md` — Figures 5–9 captions
 - `results/SUMMARY.md` — per-seed tables (dual-80, 256, 512×4, GPT-2 dual, joint-4)
 - `results/README.md` — headline table
+- `results/dyck_30seed/` — contrastive phase-cancellation, seeds 100–129 (+ early 42–51)
 
 ### Joint-4 transfer experiment
 - `experiments/joint4/run_joint4.py`
@@ -58,6 +59,7 @@ Copy these with a local `git add` using the recipe in `papers/README.md`.
 - `gpt2_multi_results.tar` / `gpt2_multi_logs.tar`
 - `gpt2_joint4_results.tar` / `gpt2_joint4_logs.tar`
 - `gpt2_sae_results.tar` / `gpt2_sae_logs.tar`
+- Dyck 30-seed checkpoints `seed_100.pt`–`seed_129.pt` (~1.6MB each)
 
 ## Headlines
 
@@ -65,3 +67,4 @@ Copy these with a local `git add` using the recipe in `papers/README.md`.
 - Capacity: 128 80/80, 256 40/40, 512×4 40/40 (extracted metas; worst 512×4 seed min_acc = 0.010)
 - GPT-2 Dyck-in-Text dual: 0/24 collapse, mean min_acc = 0.40, mean final_acc = 0.60
 - GPT-2 joint-4: 0/8 collapse, mean best_acc = 0.40
+- Contrastive cancel, Dyck 128×2, 30 seeds: 9/30 strong collapse (≤0.03); controls intact
