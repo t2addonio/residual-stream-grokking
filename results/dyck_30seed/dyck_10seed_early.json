@@ -1,1 +1,15 @@
-PLACEHOLDER
+{
+  "experiment": "dyck_10seed_seeds_42_51",
+  "seeds": [
+    {"seed": 42, "acc_base": 0.9960000514984131, "acc_cancel_contrastive": 0.005500000435858965, "acc_cancel_algorithmic": 0.9960000514984131, "acc_cancel_random": 0.9960000514984131, "overlap_contrastive_algo": 0.005261916201561689, "timestamp": "2026-07-29T00:42:12.704637Z"},
+    {"seed": 43, "acc_base": 0.999500036239624, "acc_cancel_contrastive": 0.5, "acc_cancel_algorithmic": 0.999500036239624, "acc_cancel_random": 0.999500036239624, "overlap_contrastive_algo": 0.0016982328379526734, "timestamp": "2026-07-29T00:43:32.751377Z"},
+    {"seed": 44, "acc_base": 0.9940000176429749, "acc_cancel_contrastive": 0.020500000566244125, "acc_cancel_algorithmic": 0.9940000176429749, "acc_cancel_random": 0.9940000176429749, "overlap_contrastive_algo": 0.0012902383459731936, "timestamp": "2026-07-29T00:44:52.262213Z"},
+    {"seed": 45, "acc_base": 0.9980000257492065, "acc_cancel_contrastive": 0.00800000037997961, "acc_cancel_algorithmic": 0.9980000257492065, "acc_cancel_random": 0.9975000619888306, "overlap_contrastive_algo": 0.0011949752224609256, "timestamp": "2026-07-29T00:46:15.344199Z"},
+    {"seed": 46, "acc_base": 0.9930000305175781, "acc_cancel_contrastive": 0.014000000432133675, "acc_cancel_algorithmic": 0.9930000305175781, "acc_cancel_random": 0.9930000305175781, "overlap_contrastive_algo": 0.010473943315446377, "timestamp": "2026-07-29T00:47:30.420042Z"},
+    {"seed": 47, "acc_base": 0.9955000281333923, "acc_cancel_contrastive": 0.5, "acc_cancel_algorithmic": 0.9955000281333923, "acc_cancel_random": 0.9955000281333923, "overlap_contrastive_algo": 0.0031236715149134398, "timestamp": "2026-07-29T00:48:38.962189Z"},
+    {"seed": 48, "acc_base": 0.9785000681877136, "acc_cancel_contrastive": 0.023000001907348633, "acc_cancel_algorithmic": 0.9785000681877136, "acc_cancel_random": 0.9735000729560852, "overlap_contrastive_algo": 0.0021726605482399464, "timestamp": "2026-07-29T00:49:49.308570Z"},
+    {"seed": 49, "acc_base": 0.9985000491142273, "acc_cancel_contrastive": 0.002500000176951289, "acc_cancel_algorithmic": 0.9985000491142273, "acc_cancel_random": 0.9985000491142273, "overlap_contrastive_algo": 0.000987241161055863, "timestamp": "2026-07-29T00:51:11.873074Z"},
+    {"seed": 50, "acc_base": 0.999500036239624, "acc_cancel_contrastive": 0.001500000013038516, "acc_cancel_algorithmic": 0.999500036239624, "acc_cancel_random": 0.999500036239624, "overlap_contrastive_algo": 0.002064887899905443, "timestamp": "2026-07-29T00:52:22.347467Z"},
+    {"seed": 51, "acc_base": 0.999000072479248, "acc_cancel_contrastive": 0.0035000001080334187, "acc_cancel_algorithmic": 0.999000072479248, "acc_cancel_random": 0.999000072479248, "overlap_contrastive_algo": 1.4409221876121592e-05, "timestamp": "2026-07-29T00:53:33.073383Z"}
+  ]
+}
