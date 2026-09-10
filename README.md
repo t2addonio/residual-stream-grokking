@@ -1,3 +1,7 @@
+> **Pipeline stage 1 of 4 — Grokking / causal necessity**  
+> Grokking → **causal residual isolation** → distributed/additive representations → cross-domain residual addressing → real-world signal experiments.  
+> Profile map: [github.com/t2addonio](https://github.com/t2addonio) · Next: [`isolate-rescue-grokking`](https://github.com/t2addonio/isolate-rescue-grokking)
+
 # Residual-Stream Component in Grokking
 
 Code and index for:
@@ -10,12 +14,12 @@ This is the **science-pack home** for the original grokking residual-component p
 
 ## Family of repositories
 
-| Repo | Role |
-|------|------|
-| **[residual-stream-grokking](https://github.com/t2addonio/residual-stream-grokking)** (this repo) | Original paper + discovery / causal scripts + v6 paper index |
-| **[isolate-rescue-grokking](https://github.com/t2addonio/isolate-rescue-grokking)** | 16-seed isolate / rescue / freeze-at-transition / WD ablation |
-| **[residual-causal-toolkit](https://github.com/t2addonio/residual-causal-toolkit)** | Cross-domain residual addressing toolkit (optical, RF, NV, CMB, EEG, audio, telemetry, transformers) |
-| **[hybrid-lab](https://github.com/t2addonio/hybrid-lab)** | Local-first multi-agent research lab wrapping the same residual work |
+| Stage | Repo | Role |
+|------:|------|------|
+| 1 | **[residual-stream-grokking](https://github.com/t2addonio/residual-stream-grokking)** (this repo) | Original paper + discovery / causal scripts + v6 paper index |
+| 2 | **[isolate-rescue-grokking](https://github.com/t2addonio/isolate-rescue-grokking)** | Isolate / rescue / freeze-at-transition; additive tributaries |
+| 3 | **[residual-causal-toolkit](https://github.com/t2addonio/residual-causal-toolkit)** | Cross-domain residual addressing (optical, RF, NV, CMB, EEG, audio, telemetry, transformers) |
+| 4 | **[hybrid-lab](https://github.com/t2addonio/hybrid-lab)** | Real-world signal experiments + human-gated research bus |
 
 ## One-line claim
 
