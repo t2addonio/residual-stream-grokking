@@ -153,17 +153,30 @@ def extract_fourier_subspace(model, x, layer=LAYER, k_out=K_DIMS, k_max=8):
 
 # ───────────────────────── Overlap metric ─────────────────────────
 @torch.no_grad()
-def subspace_overlap(A, B):
+def subspace_overlap(A, B, rtol=1e-6):
+    """Sum of squared cosines of principal angles / min(rank), in [0, 1].
+
+    Builds a numerical orthonormal basis for each row-span (via SVD) before
+    measuring principal angles. Row-normalized-but-correlated directions can
+    no longer push the score above 1 (the bug that made Dyck
+    overlap_contrastive_algo report values like 2.7).
     """
-    Compute the subspace overlap (sum of squared cosines of principal angles).
-    A, B: (k, d) orthonormal bases.
-    Returns a scalar in [0, 1]. 1 = identical subspaces, 0 = orthogonal.
-    """
-    # Principal angles via SVD of A @ B.T
-    M = A @ B.T
-    _, S, _ = torch.linalg.svd(M)
-    # S contains the cosines of the principal angles
-    return (S ** 2).sum().item() / min(A.shape[0], B.shape[0])
+    def _basis(X):
+        # X: (k, d) rows spanning the subspace -> (rank, d) orthonormal rows
+        _, S, Vh = torch.linalg.svd(X.float(), full_matrices=False)
+        if S.numel() == 0:
+            return X[:0]
+        thresh = float(S[0]) * rtol + 1e-12
+        rank = int((S > thresh).sum().item())
+        rank = max(rank, 1)
+        return Vh[:rank]
+
+    A_q, B_q = _basis(A), _basis(B)
+    if A_q.numel() == 0 or B_q.numel() == 0:
+        return 0.0
+    s = torch.linalg.svdvals(A_q @ B_q.T)
+    return (s ** 2).sum().item() / min(A_q.shape[0], B_q.shape[0])
+
 
 # ───────────────────────── Causal hooks ─────────────────────────
 def make_phase_cancel_hook(B, coeff=2.0):

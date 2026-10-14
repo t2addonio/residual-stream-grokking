@@ -124,6 +124,31 @@ def get_residuals(model, x, layer=LAYER):
     _, cache = model.run_with_cache(x.to(DEVICE))
     return cache[f"blocks.{layer}.hook_resid_post"]  # [B, S, D]
 
+def subspace_overlap(A, B, rtol=1e-6):
+    """Sum of squared cosines of principal angles / min(rank), in [0, 1].
+
+    Builds a numerical orthonormal basis for each row-span (via SVD) before
+    measuring principal angles. Row-normalized-but-correlated directions can
+    no longer push the score above 1 (the bug that made Dyck
+    overlap_contrastive_algo report values like 2.7).
+    """
+    def _basis(X):
+        # X: (k, d) rows spanning the subspace -> (rank, d) orthonormal rows
+        _, S, Vh = torch.linalg.svd(X.float(), full_matrices=False)
+        if S.numel() == 0:
+            return X[:0]
+        thresh = float(S[0]) * rtol + 1e-12
+        rank = int((S > thresh).sum().item())
+        rank = max(rank, 1)
+        return Vh[:rank]
+
+    A_q, B_q = _basis(A), _basis(B)
+    if A_q.numel() == 0 or B_q.numel() == 0:
+        return 0.0
+    s = torch.linalg.svdvals(A_q @ B_q.T)
+    return (s ** 2).sum().item() / min(A_q.shape[0], B_q.shape[0])
+
+
 def singular_spectrum(B):
     """Return normalized singular values of the subspace."""
     # B is already [k, d] orthonormal
@@ -294,9 +319,7 @@ def analyze_seed(seed):
         print(f"    {k}: {v:.3f}")
 
     # 5. Overlap with algorithmic features (already known, but re-confirm)
-    A = B_contrast / (B_contrast.norm(dim=1, keepdim=True) + 1e-8)
-    Al = B_algo / (B_algo.norm(dim=1, keepdim=True) + 1e-8)
-    overlap = ((A @ Al.T) ** 2).sum().item()
+    overlap = subspace_overlap(B_contrast, B_algo)
     print(f"  Overlap vs algorithmic: {overlap:.4f}")
 
     out = {
