@@ -66,3 +66,20 @@ def test_analyze_dyck_exits_nonzero_without_seeds(tmp_path):
                         "--results_dir", str(tmp_path), "--out_dir", str(tmp_path / "out")],
                        cwd=tmp_path, capture_output=True, text=True)
     assert r.returncode != 0 and "no seed_*.pt" in r.stderr
+
+def test_subspace_overlap_bounded_and_calibrated():
+    import train_dyck_30seed as T
+    torch.manual_seed(0)
+    d, k = 64, 8
+    Q = torch.linalg.qr(torch.randn(d, d))[0]
+    A = Q[:, :k].T
+    B_same = Q[:, :k].T
+    B_orth = Q[:, k:k + 3].T
+    # Old bug pattern: duplicate rows, only row-normalized. Prior metric
+    # returned 8.0 here; principal-angle overlap must stay in [0, 1].
+    dup = torch.stack([A[0], A[0], A[1], A[1], A[2], A[3], A[4], A[5]])
+    assert abs(T.subspace_overlap(A, B_same) - 1.0) < 1e-5
+    assert T.subspace_overlap(A, B_orth) < 1e-5
+    assert 0.0 <= T.subspace_overlap(dup, A) <= 1.0 + 1e-5
+    # Rank-3 inside rank-8 -> 1.0
+    assert abs(T.subspace_overlap(A, A[:3]) - 1.0) < 1e-5

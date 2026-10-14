@@ -177,10 +177,30 @@ def evaluate(model, x, y, hook=None):
     model.reset_hooks()
     return acc
 
-def subspace_overlap(A, B):
-    A = A / (A.norm(dim=1, keepdim=True) + 1e-8)
-    B = B / (B.norm(dim=1, keepdim=True) + 1e-8)
-    return ((A @ B.T) ** 2).sum().item()
+def subspace_overlap(A, B, rtol=1e-6):
+    """Sum of squared cosines of principal angles / min(rank), in [0, 1].
+
+    Builds a numerical orthonormal basis for each row-span (via SVD) before
+    measuring principal angles. Row-normalized-but-correlated directions can
+    no longer push the score above 1 (the bug that made Dyck
+    overlap_contrastive_algo report values like 2.7).
+    """
+    def _basis(X):
+        # X: (k, d) rows spanning the subspace -> (rank, d) orthonormal rows
+        _, S, Vh = torch.linalg.svd(X.float(), full_matrices=False)
+        if S.numel() == 0:
+            return X[:0]
+        thresh = float(S[0]) * rtol + 1e-12
+        rank = int((S > thresh).sum().item())
+        rank = max(rank, 1)
+        return Vh[:rank]
+
+    A_q, B_q = _basis(A), _basis(B)
+    if A_q.numel() == 0 or B_q.numel() == 0:
+        return 0.0
+    s = torch.linalg.svdvals(A_q @ B_q.T)
+    return (s ** 2).sum().item() / min(A_q.shape[0], B_q.shape[0])
+
 
 # ------------------------------------------------------------------
 # Single seed runner
