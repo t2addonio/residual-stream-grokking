@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+title: "A Causally Necessary Residual-Stream Component in Grokking, Distinct from Known Algorithmic Features"
+type: software
+authors:
+  - family-names: Taddonio
+    given-names: Tony
+    email: t2addonio@gmail.com
+repository-code: "https://github.com/t2addonio/residual-stream-grokking"
+license: MIT
+keywords:
+  - grokking
+  - mechanistic interpretability
+  - residual stream
+  - causal intervention

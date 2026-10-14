@@ -3,7 +3,7 @@
 ## v6 (canonical current draft)
 
 - Text in repo: [`Residual_Stream_Component_Grokking_v6.md`](Residual_Stream_Component_Grokking_v6.md)
-- PDF in working store: `/home/workdir/artifacts/Residual_Stream_Component_Grokking_v6_full.pdf`
+- PDF: [`Residual_Stream_Component_Grokking_v6_full.pdf`](Residual_Stream_Component_Grokking_v6_full.pdf)
 - Figures 5–9: [`FIGURES.md`](FIGURES.md)
 - Per-seed numbers: [`../results/SUMMARY.md`](../results/SUMMARY.md)
 

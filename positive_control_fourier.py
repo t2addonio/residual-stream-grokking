@@ -107,7 +107,7 @@ def run_positive_control(checkpoint_path, d_model, seed):
     print(f"Loading {checkpoint_path}")
 
     model = make_model(d_model, seed).to(DEVICE)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE))
+    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE, weights_only=True))
     model.eval()
 
     x, y = make_dataset()

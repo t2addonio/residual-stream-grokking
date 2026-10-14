@@ -132,7 +132,7 @@ def analyze_seed(task, seed, ckpt_path, topk=12, n_train=8000, n_test=3000):
     result = {"task": task, "seed": seed, "checkpoint": str(ckpt_path)}
 
     model = make_model().to(DEVICE)
-    state = torch.load(ckpt_path, map_location=DEVICE)
+    state = torch.load(ckpt_path, map_location=DEVICE, weights_only=True)
     model.load_state_dict(state)
     model.eval()
     print("  model loaded", flush=True)

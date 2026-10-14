@@ -181,7 +181,7 @@ def main():
 
     # Load a grokked checkpoint
     checkpoint_path = "grokked_seed9304.pt"   # ← change this for each seed
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE))
+    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE, weights_only=True))
     model.eval()
     print(f"Loaded checkpoint: {checkpoint_path}")
 

@@ -79,7 +79,7 @@ def analyze_dimensions(seed):
 
     print(f"\n===== Seed {seed} — dimension-wise logit contribution =====")
     model = make_model().to(DEVICE)
-    model.load_state_dict(torch.load(ckpt, map_location=DEVICE))
+    model.load_state_dict(torch.load(ckpt, map_location=DEVICE, weights_only=True))
     model.eval()
 
     x, y = make_dataset()

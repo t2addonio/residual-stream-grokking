@@ -43,7 +43,8 @@ INDEX.md                                             file-by-file catalog
 ## Requirements
 
 ```bash
-pip install torch transformer-lens einops numpy matplotlib seaborn transformers tqdm
+pip install -r requirements.txt   # pinned versions
+./reproduce.sh                    # list figure -> command targets
 ```
 
 ## Quick start (original Dyck / modular scripts)
