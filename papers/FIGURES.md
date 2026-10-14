@@ -11,3 +11,5 @@ Generated 2026-07-31 from the dual-80, capacity-scaling, GPT-2 multi-direction, 
 | 9 | `artifacts/fig9_concentrated_vs_distributed.png` | Concentrated (algorithmic) vs distributed (GPT-2) residual support |
 
 Regenerate from result `meta.json` / `sequential.json` files if the PNGs are missing.
+
+> **Errata (2026-10-14):** no script in this repo generates Figures 5–9, and the data behind Figures 7–8 (single-direction, sequential) is not committed. Figs. 5–6 match `results/csv/`. Treat Figs. 7–9 as unreproduced. See [`../ERRATA.md`](../ERRATA.md).

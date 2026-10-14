@@ -1,5 +1,7 @@
 # A Causally Necessary Residual-Stream Component in Grokking, and Its Geometry in Language-Model Residual Streams
 
+> **Errata (2026-10-14):** §4.1 and §4.3–4.5 are corrected below (Abstract corrections: see the corrections file); superseded text is struck through. Full list: [`../ERRATA.md`](../ERRATA.md), [`CORRECTIONS_2026-10-14.md`](CORRECTIONS_2026-10-14.md). The PDF is unchanged.
+
 **Tony Taddonio**  
 Independent researcher · t2addonio@gmail.com
 
@@ -47,7 +49,9 @@ More recent residual-stream / SAE work has emphasized distributed and polysemant
 
 ### 4.1 Original residual component
 
-On modular addition and multiplication the contrastive component is recoverable early, remains causally necessary after high test accuracy, and is nearly orthogonal to Fourier features. Phase cancellation drives held-out accuracy to chance; matched random and Fourier controls do not. Sparse parity: a 2-D high-energy core is necessary and sufficient. Dyck: strong collapse in about one-third of seeds under 1-D cancellation, concentrated on a direction maximally activated by locally illegal prefixes.
+~~On modular addition and multiplication the contrastive component is recoverable early, remains causally necessary after high test accuracy, and is nearly orthogonal to Fourier features. Phase cancellation drives held-out accuracy to chance; matched random and Fourier controls do not. Sparse parity: a 2-D high-energy core is necessary and sufficient. Dyck: strong collapse in about one-third of seeds under 1-D cancellation, concentrated on a direction maximally activated by locally illegal prefixes.~~
+
+**Corrected (2026-10-14):** On modular addition and multiplication the contrastive component is recoverable early, remains causally necessary after high test accuracy, and is nearly orthogonal to Fourier features. Phase cancellation drives held-out accuracy to 0.00; the Fourier control leaves it intact. A matched-rank random control is largely harmless at width 256 (0.985 ± 0.017 addition, 0.947 ± 0.086 multiplication; 5 seeds) but substantially damaging at width 128 (0.403 ± 0.175 and 0.423 ± 0.204). Sparse parity: a 2-D high-energy core is necessary and sufficient (not re-run). Dyck (30 seeds, d128): contrastive cancellation at c=2 inverts the decision on every seed (0.007 ± 0.014 vs base 0.993); controls intact. The contrastive subspace is 0.977 aligned with the readout direction, so this inversion is largely built in. The earlier "one-third of seeds" result was a metric bug and is withdrawn.
 
 ### 4.2 Capacity scaling
 
@@ -55,15 +59,19 @@ Holding Dyck fixed: width 128 → 256 (2 layers) → 512×4. Dual-direction inte
 
 ### 4.3 Dual-direction residual interference
 
-On the original 128-d models a systematic dual-direction search produced full causal collapse on every one of 80 seeds. At the optimal point the correct-class logit was driven negative (mean ≈ −1.93).
+On the original 128-d models a systematic dual-direction search produced full causal collapse on every one of 80 seeds. At the optimal point the correct-class logit was driven negative (mean ≈ −1.93). *(2026-10-14: on this balanced binary task accuracy ≈ 0 means the decision was inverted; whether the 2-D subspace is more than the readout direction is untested. Training/search scripts are not yet in the repo.)*
 
 ### 4.4 Transfer to a pretrained LM residual stream
 
-GPT-2 Small fine-tuned on Dyck-in-Text saturated at 0.55–0.63 held-out accuracy. Residual directions still moved behavior: strongest single direction typically dropped accuracy by 0.15–0.28. Joint-4 bottomed in the 0.37–0.42 range. No near-zero collapse.
+~~GPT-2 Small fine-tuned on Dyck-in-Text saturated at 0.55–0.63 held-out accuracy. Residual directions still moved behavior: strongest single direction typically dropped accuracy by 0.15–0.28. Joint-4 bottomed in the 0.37–0.42 range. No near-zero collapse.~~
+
+**Corrected (2026-10-14):** GPT-2 Small fine-tuned on Dyck-in-Text reached only 0.55–0.62 held-out accuracy (24 seeds, mean 0.60) on a two-class task. Dual interference lowered accuracy to 0.37–0.42 (mean 0.40) and joint-4 to 0.37–0.42 (mean 0.40, 8 seeds). On every seed final + post-intervention accuracy is 0.94–1.01, consistent with flipping a near-chance classifier, so this is weak evidence. The single-direction 0.15–0.28 figure and the sequential profile (Fig. 7) have no public data or scripts and are withdrawn until supplied.
 
 ### 4.5 Concentrated versus distributed geometry
 
-From-scratch algorithmic transformers: low-rank, nearly fully ablatable residual support. Pretrained LM residual stream: distributed weaker directions; joint linear cancellation remains incomplete.
+~~From-scratch algorithmic transformers: low-rank, nearly fully ablatable residual support. Pretrained LM residual stream: distributed weaker directions; joint linear cancellation remains incomplete.~~
+
+**Corrected (2026-10-14):** Hypothesis only. The current evidence doesn't separate it from two simpler explanations: the from-scratch interventions are nearly readout-aligned, and the GPT-2 model barely learned the task.
 
 ## 5. Discussion
 

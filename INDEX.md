@@ -38,7 +38,7 @@ Catalog of this repository and of companion working-store artifacts (2026-09-05,
 - `subspace_orthogonality_over_time.py`
 - `plot_paper_figures.py`
 - `run_phase_256.py`, `run_full_256.py`, `run_dynamic_range.py`
-- `run_adaptive_floating.py`, `run_mild_envelope.py`, `run_static_*.py`, `run_weight_tracking.py`
+- `run_adaptive_floating.py`, `run_mild_envelope.py`, `run_static_*.py`, `run_weight_tracking.py` — **results produced before 2026-10-14 are invalid as grokking claims** (no held-out split; "grokked" = train loss < 0.8). Fixed in PR #2; re-run in `results/rerun-2026-10-14/clipping/`: clipping did not help (controls 6/9 vs clipped 7/18 end ≥ 0.95)
 - `diagnose_14025.py`
 
 ## Working-store binaries (not in git; connector is text-first)
@@ -67,4 +67,6 @@ Copy these with a local `git add` using the recipe in `papers/README.md`.
 - Capacity: 128 80/80, 256 40/40, 512×4 40/40 (extracted metas; worst 512×4 seed min_acc = 0.010)
 - GPT-2 Dyck-in-Text dual: 0/24 collapse, mean min_acc = 0.40, mean final_acc = 0.60
 - GPT-2 joint-4: 0/8 collapse, mean best_acc = 0.40
-- Contrastive cancel, Dyck 128×2, 30 seeds: 9/30 strong collapse (≤0.03); controls intact
+- ~~Contrastive cancel, Dyck 128×2, 30 seeds: 9/30 strong collapse (≤0.03); controls intact~~ superseded (metric bug). Re-run 2026-10-14: 30/30 label flip, 0.007 ± 0.014; subspace 0.977 aligned with readout (see `ERRATA.md`)
+- GPT-2 rows: model at 0.55–0.62 accuracy (near chance); weak evidence
+- v5 random control (re-run, 5 seeds, c=2): d128 add 0.403 / mul 0.423; d256 0.985 / 0.947

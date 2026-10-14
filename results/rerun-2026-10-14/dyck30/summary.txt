@@ -1,0 +1,34 @@
+ seed   base |              contrastive |              algorithmic |                   random
+  100  0.993 | 0.007         label_flip | 0.993             intact | 0.993             intact
+  101  0.993 | 0.007         label_flip | 0.993             intact | 0.993             intact
+  102  0.989 | 0.011         label_flip | 0.989             intact | 0.989             intact
+  103  0.991 | 0.009         label_flip | 0.992             intact | 0.991             intact
+  104  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  105  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  106  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  107  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  108  0.999 | 0.001         label_flip | 0.999             intact | 0.999             intact
+  109  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  110  0.991 | 0.009         label_flip | 0.992             intact | 0.991             intact
+  111  0.992 | 0.007         label_flip | 0.992             intact | 0.992             intact
+  112  0.997 | 0.004         label_flip | 0.997             intact | 0.997             intact
+  113  0.996 | 0.004         label_flip | 0.996             intact | 0.996             intact
+  114  0.994 | 0.005         label_flip | 0.994             intact | 0.994             intact
+  115  0.995 | 0.005         label_flip | 0.997             intact | 0.995             intact
+  116  0.996 | 0.004         label_flip | 0.996             intact | 0.996             intact
+  117  0.994 | 0.005         label_flip | 0.994             intact | 0.994             intact
+  118  0.924 | 0.078         label_flip | 0.927             intact | 0.891             intact
+  119  0.992 | 0.012         label_flip | 0.992             intact | 0.994             intact
+  120  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  121  0.996 | 0.004         label_flip | 0.996             intact | 0.996             intact
+  122  0.997 | 0.004         label_flip | 0.997             intact | 0.997             intact
+  123  0.997 | 0.003         label_flip | 0.997             intact | 0.997             intact
+  124  0.997 | 0.003         label_flip | 0.997             intact | 0.997             intact
+  125  0.996 | 0.004         label_flip | 0.996             intact | 0.996             intact
+  126  0.998 | 0.002         label_flip | 0.998             intact | 0.998             intact
+  127  1.000 | 0.000         label_flip | 1.000             intact | 1.000             intact
+  128  0.994 | 0.013         label_flip | 0.995             intact | 0.993             intact
+  129  0.996 | 0.004         label_flip | 0.996             intact | 0.996             intact
+contrastive  label_flip=30
+algorithmic  intact=30
+random       intact=30
