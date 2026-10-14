@@ -250,7 +250,7 @@ def analyze_seed(seed):
         print(f"  missing {pt_path}, skipping")
         return None
 
-    data = torch.load(pt_path, map_location="cpu")
+    data = torch.load(pt_path, map_location="cpu", weights_only=True)
     B_contrast = data["B_contrast"]
     B_algo = data["B_algo"]
 

@@ -100,7 +100,7 @@ def run_one(seed, ckpt_path, ks=(1, 2, 4, 8, 16)):
     result = {"seed": seed, "checkpoint": str(ckpt_path), "task": "parity"}
 
     model = make_model().to(DEVICE)
-    sd = torch.load(ckpt_path, map_location=DEVICE)
+    sd = torch.load(ckpt_path, map_location=DEVICE, weights_only=True)
     model.load_state_dict(sd)
     model.eval()
 

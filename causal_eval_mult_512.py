@@ -167,7 +167,7 @@ def run_one(checkpoint_path, seed):
     print(f"Loading {checkpoint_path}")
 
     model = make_model().to(DEVICE)
-    state = torch.load(checkpoint_path, map_location=DEVICE)
+    state = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
     model.load_state_dict(state)
     model.eval()
 

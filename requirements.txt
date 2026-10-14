@@ -1,0 +1,11 @@
+# Pinned environment for residual-stream-grokking (verified on Python 3.13, CPU, 2026-10-14).
+# For CUDA, install torch from the matching index first, e.g.:
+#   pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu128
+torch==2.14.1
+transformer-lens==3.9.0  # <4: scripts use HookedTransformer, removed in 4.0
+transformers==5.19.0
+einops==0.8.2
+numpy==2.5.4
+matplotlib==3.11.2
+seaborn==0.13.2
+tqdm==4.70.1
