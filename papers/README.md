@@ -1,5 +1,7 @@
 # Papers
 
+> **Errata (2026-10-14):** see [`../ERRATA.md`](../ERRATA.md) and [`CORRECTIONS_2026-10-14.md`](CORRECTIONS_2026-10-14.md) (exact original text + replacement paragraphs for v5 and v6). PDFs are unchanged.
+
 ## v6 (canonical current draft)
 
 - Text in repo: [`Residual_Stream_Component_Grokking_v6.md`](Residual_Stream_Component_Grokking_v6.md)

@@ -1,0 +1,15 @@
+# Errata (14 October 2026)
+
+A re-check of the code and data behind the v5 and v6 papers found the errors below. **The PDFs have not been edited**; read them together with this file. Full errata draft with exact original sentences, replacement text and evidence: [`papers/CORRECTIONS_2026-10-14.md`](papers/CORRECTIONS_2026-10-14.md). Re-run data: [`results/rerun-2026-10-14/`](results/rerun-2026-10-14/).
+
+| # | Where | Original | Correction | Status |
+|---|---|---|---|---|
+| 1 | v5 Abstract, §4.1, Fig. 1–2, Table 1; v6 Abstract, §4.1 | "random controls leave performance essentially intact" | Random-subspace cancel at c=2: **d128 addition 0.403 ± 0.175, multiplication 0.423 ± 0.204**; d256 0.985 ± 0.017 / 0.947 ± 0.086 (5 seeds). Holds only at width 256. Contrastive → 0.00 reproduces. | corrected |
+| 2 | v6 PDF §4.2 (p. 6) | "97.5 % (39/40) at 512×4" | **100 % (40/40)**, worst seed 0.010 (`results/csv/deep_wide_dyck_40seeds.csv`) | corrected |
+| 3 | v6 §4.1; `results/dyck_30seed/README.md` | "strong causal collapse in approximately one-third of runs" (9/30) | Artefact of an accuracy bug. Fixed code: **30/30 label flips** (0.007 ± 0.014). But the subspace aligns 0.977 with the readout, so the flip is largely built in. Algorithmic control is rank 3, not 8. Overlap values withdrawn (metric > 1). | corrected + weakened |
+| 4 | v6 §4.3, §4.5 | 2-D subspace "sufficient to capture the load-bearing decision variable"; concentrated vs distributed | Accuracy ≈ 0 on a balanced binary task = inverted decision. Readout-alignment caveat (#3) likely applies; not yet tested for these runs. Concentrated-vs-distributed is a hypothesis. | weakened |
+| 5 | v6 §4.4 | GPT-2 "retained measurable causal effect"; "strongest single direction … 0.15–0.28"; Fig. 7 sequential | GPT-2 reached only 0.55–0.62 on a two-class task; final + min acc = 0.94–1.01 on every seed (flipping a near-chance classifier). Single-direction and sequential data/scripts are not in the repo. | weakened; 0.15–0.28 and Fig. 7 unbacked |
+| 6 | v6 Figs. 5–9 | — | No generating scripts in the repo (dual-interference, capacity-scaling, GPT-2 multi-direction). Figs. 5–6 match committed CSVs. | unbacked — supply scripts |
+| 7 | v5 §2, §5; v6 §2 | weight-norm clipping "accelerate[s] grokking"; in-house clipping "consistent with" the component | In-repo clipping scripts had no test split before PR #2. Re-run: controls 6/9 grokked (mean 0.90), clipped 7/18 (mean 0.68); no grokking delay; all unstable. | corrected |
+| 8 | `run_static_fixed.py`, `run_static_1.8.py`, `run_mild_envelope.py`, `run_weight_tracking.py` results before 2026-10-14 | "grokked" = training loss < 0.8 | Invalid as grokking/generalisation claims; superseded by `results/rerun-2026-10-14/clipping/` | corrected |
+| 9 | v5 p=257, sparse parity/majority, dynamics | — | Not re-run (sparse parity too slow on CPU); v5 figures are drawn from hard-coded numbers (`plot_paper_figures.py`) | needs rerun |

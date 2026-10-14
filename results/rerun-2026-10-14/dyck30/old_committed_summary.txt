@@ -1,0 +1,34 @@
+ seed   base |              contrastive |              algorithmic |                   random
+  100  0.992 | 0.015         label_flip | 0.992             intact | 0.992             intact
+  101  0.992 | 0.180            partial | 0.992             intact | 0.992             intact
+  102  0.989 | 0.500   chance_ambiguous | 0.989             intact | 0.989             intact
+  103  0.992 | 0.031         label_flip | 0.992             intact | 0.992             intact
+  104  0.999 | 0.500   chance_ambiguous | 0.999             intact | 0.999             intact
+  105  0.994 | 0.500   chance_ambiguous | 0.994             intact | 0.994             intact
+  106  0.995 | 0.500   chance_ambiguous | 0.995             intact | 0.995             intact
+  107  0.996 | 0.500   chance_ambiguous | 0.996             intact | 0.996             intact
+  108  1.000 | 0.500   chance_ambiguous | 1.000             intact | 1.000             intact
+  109  0.992 | 0.485   chance_ambiguous | 0.992             intact | 0.992             intact
+  110  0.992 | 0.009         label_flip | 0.992             intact | 0.992             intact
+  111  0.988 | 0.485   chance_ambiguous | 0.988             intact | 0.988             intact
+  112  0.990 | 0.500   chance_ambiguous | 0.990             intact | 0.990             intact
+  113  0.992 | 0.500   chance_ambiguous | 0.992             intact | 0.992             intact
+  114  0.996 | 0.500   chance_ambiguous | 0.996             intact | 0.996             intact
+  115  0.994 | 0.009         label_flip | 0.994             intact | 0.994             intact
+  116  0.997 | 0.005         label_flip | 0.997             intact | 0.997             intact
+  117  0.996 | 0.005         label_flip | 0.996             intact | 0.996             intact
+  118  0.997 | 0.005         label_flip | 0.997             intact | 0.997             intact
+  119  1.000 | 0.419            partial | 1.000             intact | 1.000             intact
+  120  0.996 | 0.500   chance_ambiguous | 0.996             intact | 0.996             intact
+  121  0.993 | 0.500   chance_ambiguous | 0.993             intact | 0.993             intact
+  122  0.997 | 0.500   chance_ambiguous | 0.997             intact | 0.997             intact
+  123  0.997 | 0.500   chance_ambiguous | 0.997             intact | 0.997             intact
+  124  0.992 | 0.500   chance_ambiguous | 0.992             intact | 0.992             intact
+  125  0.996 | 0.500   chance_ambiguous | 0.996             intact | 0.996             intact
+  126  0.998 | 0.243            partial | 0.998             intact | 0.998             intact
+  127  0.991 | 0.006         label_flip | 0.991             intact | 0.998             intact
+  128  0.995 | 0.015         label_flip | 0.995             intact | 0.995             intact
+  129  0.996 | 0.006         label_flip | 0.996             intact | 0.996             intact
+contrastive  chance_ambiguous=17, label_flip=10, partial=3
+algorithmic  intact=30
+random       intact=30

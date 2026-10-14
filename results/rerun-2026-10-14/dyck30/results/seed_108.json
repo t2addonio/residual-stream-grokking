@@ -1,0 +1,50 @@
+{
+  "seed": 108,
+  "acc_base": 0.9994999766349792,
+  "acc_cancel_contrastive": 0.0005000000237487257,
+  "acc_cancel_algorithmic": 0.9994999766349792,
+  "acc_cancel_random": 0.9994999766349792,
+  "overlap_contrastive_algo": 2.94083571434021,
+  "k_contrastive": 8,
+  "k_algorithmic": 3,
+  "k_random": 8,
+  "readout_alignment": {
+    "contrastive": 0.9775022864341736,
+    "algorithmic": 0.03649153932929039,
+    "random": 0.1971895694732666
+  },
+  "prediction_stats": {
+    "base": {
+      "acc": 0.9994999766349792,
+      "pred_pos_rate": 0.5005000233650208,
+      "acc_pos": 1.0,
+      "acc_neg": 0.9990000128746033,
+      "pad_argmax_rate": 0.0
+    },
+    "contrastive": {
+      "acc": 0.0005000000237487257,
+      "pred_pos_rate": 0.49950000643730164,
+      "acc_pos": 0.0,
+      "acc_neg": 0.0010000000474974513,
+      "pad_argmax_rate": 1.0
+    },
+    "algorithmic": {
+      "acc": 0.9994999766349792,
+      "pred_pos_rate": 0.5005000233650208,
+      "acc_pos": 1.0,
+      "acc_neg": 0.9990000128746033,
+      "pad_argmax_rate": 0.0
+    },
+    "random": {
+      "acc": 0.9994999766349792,
+      "pred_pos_rate": 0.5005000233650208,
+      "acc_pos": 1.0,
+      "acc_neg": 0.9990000128746033,
+      "pad_argmax_rate": 0.0
+    }
+  },
+  "steps_trained": 6001,
+  "metric": "argmax over class logits {0,1}; held-out shuffled; balanced early stop",
+  "device": "cpu",
+  "timestamp": "2026-10-14T02:09:47.281302Z"
+}

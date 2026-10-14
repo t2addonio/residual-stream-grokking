@@ -3,7 +3,18 @@
 From-scratch 2-layer `d_model=128` Dyck models, seeds 100–129.
 Intervention: final residual stream (`blocks.1.hook_resid_post`), coeff=2.
 
-## Headlines
+> **SUPERSEDED (2026-10-14).** The table below was produced by a version of `train_dyck_30seed.py` whose accuracy counted the pad token as a class (and whose early-stop slice was unshuffled). The "9/30 strong collapse / 18 near chance" split is an artefact of that bug. Re-run with the fixed code: [`../rerun-2026-10-14/`](../rerun-2026-10-14/). Kept here unchanged for the record.
+
+## Corrected headlines (re-run 2026-10-14, fixed code, seeds 100–129)
+
+- Base held-out accuracy: 0.993 ± 0.013 (seed 118: 0.924)
+- Contrastive cancel (c=2): **30/30 seeds label-flip**, accuracy 0.007 ± 0.014 (max 0.078); top-1 direction alone 0.033 ± 0.099
+- Algorithmic control 0.993 ± 0.013; random control 0.992 ± 0.019: intact on all seeds
+- **Caveat:** the contrastive subspace aligns 0.977 ± 0.014 with the readout logit-difference direction (algorithmic 0.18, random 0.24). A label flip at c=2 is therefore largely expected by construction and is not, by itself, evidence of a separate component. A readout-matched control is needed.
+- The algorithmic control subspace is **rank 3, not 8**; on 23/30 seeds its cancel equals base exactly (hook close to a no-op).
+- The `overlap` column below is **invalid**: the metric's normalisation is wrong (re-run values 2.73 ± 0.49, i.e. > 1).
+
+## Original headlines (superseded)
 
 - Base held-out accuracy: mean 0.994
 - Strong collapse (cancel acc ≤ 0.03): **9/30** seeds [100, 110, 115, 116, 117, 118, 127, 128, 129]
@@ -11,7 +22,7 @@ Intervention: final residual stream (`blocks.1.hook_resid_post`), coeff=2.
 - Chance / near-chance (≥ 0.4): 18 seeds
 - Algorithmic (stack/count) and random controls: no collapse on any seed
 
-## Per-seed table
+## Per-seed table (superseded, original run)
 
 | seed | base | cancel contrastive | cancel algo | cancel random | overlap |
 |------|------|--------------------|-------------|---------------|---------|
@@ -46,7 +57,7 @@ Intervention: final residual stream (`blocks.1.hook_resid_post`), coeff=2.
 | 128 | 0.995 | 0.015 | 0.995 | 0.995 | 0.0237 |
 | 129 | 0.996 | 0.006 | 0.996 | 0.996 | 0.0048 |
 
-## Direction analysis (strong-collapse seeds)
+## Direction analysis (strong-collapse seeds; original run, not re-checked)
 
 When collapse is strong, top-1 cancellation is already sufficient.
 Max-activating sequences are short illegal prefixes (`)(`, `))`, `)))`).

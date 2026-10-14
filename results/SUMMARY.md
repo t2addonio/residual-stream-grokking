@@ -1,5 +1,7 @@
 # Experiment result summaries
 
+> **Errata (2026-10-14):** numbers below match the CSVs, but see [`../ERRATA.md`](../ERRATA.md) for how to read them: in these balanced binary tasks `min_acc` ≈ 0 means the decision was *inverted*, and the GPT-2 rows describe a model at 0.55–0.62 accuracy (near chance). The training/search scripts for these runs are not yet in the repo.
+
 Extracted from working-store archives on 2026-09-05. Raw `.npy` / `.npz` / logs remain in the tars.
 
 ## Dual interference — pure Dyck 80 seeds
@@ -34,6 +36,8 @@ n = 40
 Note: an earlier writeup listed 39/40 at this scale; the extracted metas for this archive show all 40 seeds below 0.05 (worst seed 28 at 0.0100).
 
 ## GPT-2 Dyck-in-Text dual sweep, 24 seeds
+
+> Weak evidence: final_acc + min_acc = 0.94–1.01 on every seed, i.e. the intervention flips a near-chance classifier.
 
 n = 24
 - mean `min_acc` = 0.3976

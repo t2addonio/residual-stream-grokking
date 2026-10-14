@@ -4,6 +4,9 @@
 
 # Residual-Stream Component in Grokking
 
+> **Errata (2026-10-14):** some claims below are corrected or withdrawn. See [`ERRATA.md`](ERRATA.md).
+
+
 Code and index for:
 
 **A Causally Necessary Residual-Stream Component in Grokking, Distinct from Known Algorithmic Features**
@@ -25,11 +28,17 @@ This is the **science-pack home** for the original grokking residual-component p
 
 After grokking, a low-dimensional contrastive residual-stream component remains load-bearing and nearly orthogonal to known algorithmic features (Fourier, stack/counting). Phase / magnitude / dual-interference interventions collapse it on from-scratch algorithmic models. On a pretrained language-model residual stream the same formal decision becomes distributed and only partially linear.
 
+**Caveats (2026-10-14 re-check, see [`ERRATA.md`](ERRATA.md)):** the matched random control is *not* harmless at width 128 (≈0.40 accuracy after cancel at c=2); on Dyck the contrastive subspace is ~98% aligned with the readout direction, so the collapse (a label flip) is largely built in; the GPT-2 model reaches only 0.55–0.62 on a two-class task, so the transfer result is weak evidence; Figures 5–9 have no generating scripts in this repo yet.
+
 ## Papers
 
 - v5 (original GitHub PDF): [`Residual_Stream_Component_Grokking.pdf`](Residual_Stream_Component_Grokking.pdf)
 - v6 cohesive draft (capacity scaling + dual + multi-direction + GPT-2 transfer): see [`papers/README.md`](papers/README.md)
 - Figures 5–9 (capacity, dual-80, sequential GPT-2, single/pair/joint-4, concentrated vs distributed): see [`papers/FIGURES.md`](papers/FIGURES.md)
+
+## Re-runs (2026-10-14)
+
+CPU re-runs with the fixed code: [`results/rerun-2026-10-14/`](results/rerun-2026-10-14/).
 
 ## Layout
 
