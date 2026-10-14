@@ -9,6 +9,7 @@ import json
 import os
 import argparse
 from datetime import datetime
+from modarith_split import make_split, sample_batch, evaluate, add_split_args
 from collections import defaultdict
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -22,13 +23,6 @@ def get_model():
     )
     return HookedTransformer(cfg).to(device)
 
-def make_data(batch_size=512):
-    a = torch.randint(0, p, (batch_size, 1), device=device)
-    b = torch.randint(0, p, (batch_size, 1), device=device)
-    x = torch.cat([a, b, torch.zeros_like(a)], dim=1)
-    y = (a + b) % p
-    return x, y
-
 def apply_per_row_clipping(model, max_norm=1.8):
     with torch.no_grad():
         for param in model.parameters():
@@ -40,7 +34,7 @@ def apply_per_row_clipping(model, max_norm=1.8):
                 flat.mul_(scale)
                 param.copy_(flat.view(original_shape))
 
-def run_experiment(seed, max_norm, max_steps=20001, name="Run"):
+def run_experiment(seed, max_norm, max_steps=20001, name="Run", train_frac=0.3, eval_every=500, grok_threshold=0.95):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
@@ -49,12 +43,16 @@ def run_experiment(seed, max_norm, max_steps=20001, name="Run"):
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1.0)
     criterion = nn.CrossEntropyLoss()
 
+    gen = torch.Generator().manual_seed(seed)
+    train, test = make_split(p, seed, train_frac, device)
+    history = []  # (step, train_acc, test_acc, test_loss)
+    memorize_step = grok_step = None
     print(f"\n=== {name} | Seed {seed} | Max Norm = {max_norm} ===")
 
     for step in tqdm(range(max_steps)):
-        x, y = make_data()
+        x, y = sample_batch(train, 512, gen)
         logits = model(x)
-        loss = criterion(logits[:, -1], y.squeeze())
+        loss = criterion(logits[:, -1], y)
 
         optimizer.zero_grad()
         loss.backward()
@@ -63,19 +61,38 @@ def run_experiment(seed, max_norm, max_steps=20001, name="Run"):
         if max_norm < 999:
             apply_per_row_clipping(model, max_norm=max_norm)
 
+        if step % eval_every == 0 or step == max_steps - 1:
+            tr_acc, _ = evaluate(model, train)
+            te_acc, te_loss = evaluate(model, test)
+            history.append((step, tr_acc, te_acc, te_loss))
+            if memorize_step is None and tr_acc >= 0.99:
+                memorize_step = step
+            if grok_step is None and te_acc >= grok_threshold:
+                grok_step = step
+
         if step % 2000 == 0:
             print(f"Step {step:5d}: Loss = {loss.item():.4f}")
 
     final_loss = loss.item()
-    grokked = final_loss < 0.8
-    print(f"Final loss = {final_loss:.4f} | Grokked: {grokked}")
+    # Grokking is judged on held-out test accuracy (was: final train-batch loss < 0.8).
+    grokked = history[-1][2] >= grok_threshold
+    print(f"Final train loss = {final_loss:.4f} | train acc = {history[-1][1]:.3f} | "
+          f"test acc = {history[-1][2]:.3f} | grok_step = {grok_step} | Grokked: {grokked}")
     
     return {
         "name": name,
         "seed": seed,
         "max_norm": max_norm,
         "final_loss": final_loss,
-        "grokked": grokked
+        "grokked": grokked,
+        "train_acc": history[-1][1],
+        "test_acc": history[-1][2],
+        "test_loss": history[-1][3],
+        "memorize_step": memorize_step,
+        "grok_step": grok_step,
+        "train_frac": train_frac,
+        "grok_threshold": grok_threshold,
+        "eval_history": history
     }
 
 # ======================
@@ -86,28 +103,29 @@ parser.add_argument("--start", type=int, default=100, help="Start seed")
 parser.add_argument("--end", type=int, default=114, help="End seed (inclusive)")
 parser.add_argument("--norm", type=float, default=999.0, help="Max row norm (999 = Control)")
 parser.add_argument("--name", type=str, default="Control", help="Condition name")
+add_split_args(parser)
 args = parser.parse_args()
 
-# Create results directory
-os.makedirs("results", exist_ok=True)
+def _summary(results, title):
+    print("\n" + "=" * 70)
+    print(title + "  (grokked = held-out test acc >= %.2f)" % args.grok_threshold)
+    print("=" * 70)
+    groups = defaultdict(list)
+    for r in results:
+        groups[r["name"]].append(r)
+    for name, rs in groups.items():
+        g = sum(r["grokked"] for r in rs)
+        mean_te = sum(r["test_acc"] for r in rs) / len(rs)
+        print(f"{name:<20} | {g}/{len(rs)} grokked ({g/len(rs):.1%}) | mean test acc {mean_te:.3f}")
 
+os.makedirs(args.out_dir, exist_ok=True)
 results = []
-
 for seed in range(args.start, args.end + 1):
-    res = run_experiment(seed=seed, max_norm=args.norm, name=args.name)
-    results.append(res)
+    results.append(run_experiment(seed=seed, max_norm=args.norm, name=args.name, max_steps=args.max_steps, train_frac=args.train_frac, eval_every=args.eval_every, grok_threshold=args.grok_threshold))
 
-# Save results
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-filename = f"results/{args.name.replace(' ', '_')}_{args.start}_{args.end}_{timestamp}.json"
+filename = os.path.join(args.out_dir, f"{args.name.replace(' ', '_')}_{args.start}_{args.end}_{timestamp}.json")
 with open(filename, "w") as f:
     json.dump(results, f, indent=2)
-
 print(f"\nResults saved to: {filename}")
-
-# Summary
-print("\n" + "="*60)
-print(f"SUMMARY: {args.name}")
-print("="*60)
-successes = sum(1 for r in results if r["grokked"])
-print(f"{successes}/{len(results)} grokked ({successes/len(results):.1%})")
+_summary(results, f"SUMMARY: {args.name}")

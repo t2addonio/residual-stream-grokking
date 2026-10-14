@@ -6,7 +6,10 @@ from tqdm import tqdm
 import random
 import numpy as np
 import json
+import os
+import argparse
 from datetime import datetime
+from modarith_split import make_split, sample_batch, evaluate, add_split_args
 from collections import defaultdict
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -19,13 +22,6 @@ def get_model():
         n_ctx=3, d_vocab=p+1, act_fn="relu", positional_embedding_type="standard",
     )
     return HookedTransformer(cfg).to(device)
-
-def make_data(batch_size=512):
-    a = torch.randint(0, p, (batch_size, 1), device=device)
-    b = torch.randint(0, p, (batch_size, 1), device=device)
-    x = torch.cat([a, b, torch.zeros_like(a)], dim=1)
-    y = (a + b) % p
-    return x, y
 
 def get_average_row_norm(model):
     total_norm = 0.0
@@ -58,7 +54,10 @@ def run_with_weight_tracking(
     peak_start=300,
     peak_end=1200,
     min_norm=1.4,
-    name="Run"
+    name="Run",
+    train_frac=0.3,
+    eval_every=500,
+    grok_threshold=0.95,
 ):
     torch.manual_seed(seed)
     random.seed(seed)
@@ -68,6 +67,10 @@ def run_with_weight_tracking(
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1.0)
     criterion = nn.CrossEntropyLoss()
 
+    gen = torch.Generator().manual_seed(seed)
+    train, test = make_split(p, seed, train_frac, device)
+    history = []  # (step, train_acc, test_acc, test_loss)
+    memorize_step = grok_step = None
     print(f"\n=== {name} | Seed {seed} | Base Norm {base_norm} | Envelope={use_envelope} ===")
 
     steps_logged = []
@@ -76,9 +79,9 @@ def run_with_weight_tracking(
     applied_norms = []
 
     for step in tqdm(range(max_steps)):
-        x, y = make_data()
+        x, y = sample_batch(train, 512, gen)
         logits = model(x)
-        loss = criterion(logits[:, -1], y.squeeze())
+        loss = criterion(logits[:, -1], y)
 
         optimizer.zero_grad()
         loss.backward()
@@ -100,6 +103,15 @@ def run_with_weight_tracking(
             apply_per_row_clipping(model, max_norm=current_norm)
 
         # Log every 1000 steps
+        if step % eval_every == 0 or step == max_steps - 1:
+            tr_acc, _ = evaluate(model, train)
+            te_acc, te_loss = evaluate(model, test)
+            history.append((step, tr_acc, te_acc, te_loss))
+            if memorize_step is None and tr_acc >= 0.99:
+                memorize_step = step
+            if grok_step is None and te_acc >= grok_threshold:
+                grok_step = step
+
         if step % 1000 == 0 or step == max_steps - 1:
             avg_norm = get_average_row_norm(model)
             steps_logged.append(step)
@@ -111,14 +123,24 @@ def run_with_weight_tracking(
                 print(f"Step {step:5d}: Loss={loss.item():.4f} | Applied={current_norm:.2f} | Actual Avg={avg_norm:.3f}")
 
     final_loss = loss.item()
-    grokked = final_loss < 0.8
-    print(f"Final loss = {final_loss:.4f} | Grokked: {grokked}")
+    # Grokking is judged on held-out test accuracy (was: final train-batch loss < 0.8).
+    grokked = history[-1][2] >= grok_threshold
+    print(f"Final train loss = {final_loss:.4f} | train acc = {history[-1][1]:.3f} | "
+          f"test acc = {history[-1][2]:.3f} | grok_step = {grok_step} | Grokked: {grokked}")
 
     return {
         "name": name,
         "seed": seed,
         "final_loss": final_loss,
         "grokked": grokked,
+        "train_acc": history[-1][1],
+        "test_acc": history[-1][2],
+        "test_loss": history[-1][3],
+        "memorize_step": memorize_step,
+        "grok_step": grok_step,
+        "train_frac": train_frac,
+        "grok_threshold": grok_threshold,
+        "eval_history": history,
         "steps": steps_logged,
         "losses": losses_logged,
         "avg_row_norms": avg_row_norms,
@@ -128,51 +150,43 @@ def run_with_weight_tracking(
     }
 
 # ======================
-# CONFIGURATION - EDIT THIS SECTION FOR EACH GPU
+# CONFIGURATION
 # ======================
+CONDITIONS = [  # (name, first seed, kwargs)
+    ('Control', 3000, dict(base_norm=999.0, use_envelope=False)),
+    ('Static 1.8', 3100, dict(base_norm=1.8, use_envelope=False)),
+    ('Weight Envelope', 3200, dict(base_norm=1.8, use_envelope=True, peak_start=300, peak_end=1200, min_norm=1.4)),
+]
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--seeds_per_condition", type=int, default=15)
+parser.add_argument("--only", nargs="*", default=None, help="run only these condition names")
+add_split_args(parser)
+args = parser.parse_args()
+
+def _summary(results, title):
+    print("\n" + "=" * 70)
+    print(title + "  (grokked = held-out test acc >= %.2f)" % args.grok_threshold)
+    print("=" * 70)
+    groups = defaultdict(list)
+    for r in results:
+        groups[r["name"]].append(r)
+    for name, rs in groups.items():
+        g = sum(r["grokked"] for r in rs)
+        mean_te = sum(r["test_acc"] for r in rs) / len(rs)
+        print(f"{name:<20} | {g}/{len(rs)} grokked ({g/len(rs):.1%}) | mean test acc {mean_te:.3f}")
+
+os.makedirs(args.out_dir, exist_ok=True)
 results = []
+for name, seed0, kw in CONDITIONS:
+    if args.only and name not in args.only:
+        continue
+    for seed in range(seed0, seed0 + args.seeds_per_condition):
+        results.append(run_with_weight_tracking(seed=seed, name=name, max_steps=args.max_steps, train_frac=args.train_frac, eval_every=args.eval_every, grok_threshold=args.grok_threshold, **kw))
 
-# Example for one GPU (you can change the seed ranges on each machine)
-
-# Control
-for seed in range(3000, 3015):  # 15 seeds
-    results.append(run_with_weight_tracking(
-        seed=seed, base_norm=999.0, use_envelope=False, name="Control"
-    ))
-
-# Static 1.8
-for seed in range(3100, 3115):  # 15 seeds
-    results.append(run_with_weight_tracking(
-        seed=seed, base_norm=1.8, use_envelope=False, name="Static 1.8"
-    ))
-
-# Weight Envelope
-for seed in range(3200, 3215):  # 15 seeds
-    results.append(run_with_weight_tracking(
-        seed=seed,
-        base_norm=1.8,
-        use_envelope=True,
-        peak_start=300,
-        peak_end=1200,
-        min_norm=1.4,
-        name="Weight Envelope"
-    ))
-
-# Save results
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-with open(f"weight_tracking_results_{timestamp}.json", "w") as f:
+filename = os.path.join(args.out_dir, f"weight_tracking_results_{timestamp}.json")
+with open(filename, "w") as f:
     json.dump(results, f, indent=2)
-
-# Summary
-print("\n" + "="*70)
-print("WEIGHT TRACKING SUMMARY")
-print("="*70)
-
-summary = defaultdict(list)
-for r in results:
-    summary[r["name"]].append(r["grokked"])
-
-for name, vals in summary.items():
-    rate = sum(vals) / len(vals)
-    print(f"{name:<20} | {sum(vals)}/{len(vals)} grokked ({rate:.1%})")
+print(f"\nResults saved to: {filename}")
+_summary(results, 'WEIGHT TRACKING SUMMARY')

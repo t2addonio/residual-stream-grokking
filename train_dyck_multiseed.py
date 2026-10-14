@@ -171,8 +171,9 @@ def evaluate(model, x, y, hook=None):
         model.add_hook(f"blocks.{LAYER}.hook_resid_post", hook)
     with torch.no_grad():
         logits = model(x.to(DEVICE))
-        preds = logits[:, -1].argmax(-1)
-        acc = (preds % 2 == y.to(DEVICE)).float().mean().item()
+        # class logits only (ids 0/1); a 3-way argmax % 2 counted PAD as class 0
+        preds = logits[:, -1, :2].argmax(-1)
+        acc = (preds == y.to(DEVICE)).float().mean().item()
     model.reset_hooks()
     return acc
 
