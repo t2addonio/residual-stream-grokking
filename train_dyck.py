@@ -209,10 +209,11 @@ def evaluate(model, x, y, hook=None):
     with torch.no_grad():
         logits = model(x.to(DEVICE))
         # use final non-pad position roughly
-        preds = logits[:, -1].argmax(-1)
+        # class logits only (ids 0/1); a 3-way argmax % 2 counted PAD as class 0
+        preds = logits[:, -1, :2].argmax(-1)
         # For simplicity we treat the model as classifying the whole sequence
         # via the final token prediction (you can improve this later)
-        acc = (preds % 2 == y.to(DEVICE)).float().mean().item()  # crude but works for binary
+        acc = (preds == y.to(DEVICE)).float().mean().item()
     model.reset_hooks()
     return acc
 

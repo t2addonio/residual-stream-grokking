@@ -37,7 +37,6 @@ LAYER = 1
 BASE_SEED = 100
 
 RESULTS_DIR = Path("results_dyck_30seed")
-RESULTS_DIR.mkdir(exist_ok=True)
 
 # ------------------------------------------------------------------
 # Data
@@ -96,7 +95,23 @@ def make_dataset(n, max_len, max_depth, seed, balanced_ratio=0.5):
 def get_train_heldout(seed):
     x_tr, y_tr = make_dataset(8000, max_len=16, max_depth=3, seed=seed)
     x_ho, y_ho = make_dataset(2000, max_len=28, max_depth=5, seed=seed + 10000)
-    return (x_tr, y_tr), (x_ho, y_ho)
+    # make_dataset emits all positives first, then all negatives. Shuffle the
+    # held-out set (seeded) so any prefix of it is a fair sample.
+    g = torch.Generator().manual_seed(seed + 20000)
+    perm = torch.randperm(len(y_ho), generator=g)
+    return (x_tr, y_tr), (x_ho[perm], y_ho[perm])
+
+def balanced_subset(x, y, n_per_class, seed):
+    """Seeded subset with exactly n_per_class examples of each label."""
+    g = torch.Generator().manual_seed(seed)
+    idx = []
+    for c in (0, 1):
+        cls = (y == c).nonzero(as_tuple=True)[0].cpu()
+        cls = cls[torch.randperm(len(cls), generator=g)][:n_per_class]
+        idx.append(cls)
+    idx = torch.cat(idx)
+    idx = idx[torch.randperm(len(idx), generator=g)].to(x.device)
+    return x[idx], y[idx]
 
 # ------------------------------------------------------------------
 # Model + helpers
@@ -164,17 +179,38 @@ def make_cancel_hook(B, coeff=2.0):
         return resid - coeff * delta
     return hook
 
-def evaluate(model, x, y, hook=None):
+def _final_logits(model, x, hook=None):
     model.eval()
     model.reset_hooks()
     if hook is not None:
         model.add_hook(f"blocks.{LAYER}.hook_resid_post", hook)
     with torch.no_grad():
-        logits = model(x)
-        preds = logits[:, -1].argmax(-1)
-        acc = (preds % 2 == y).float().mean().item()
+        logits = model(x)[:, -1]
     model.reset_hooks()
-    return acc
+    return logits
+
+def evaluate(model, x, y, hook=None):
+    """Binary accuracy from the two class logits (token ids 0/1).
+
+    The old metric was ``argmax over all 3 vocab logits % 2 == y``. That let the PAD
+    logit (id 2, and 2 % 2 == 0) count as "predict 0", so an intervention that made PAD
+    win turned into a constant class-0 prediction (acc 0.500) instead of showing up as a
+    sign flip. We now compare only the two class logits.
+    """
+    preds = _final_logits(model, x, hook)[:, :2].argmax(-1)
+    return (preds == y).float().mean().item()
+
+def prediction_stats(model, x, y, hook=None):
+    """Extra diagnostics so label flips and single-class collapse can be told apart."""
+    logits = _final_logits(model, x, hook)
+    preds = logits[:, :2].argmax(-1)
+    return {
+        "acc": (preds == y).float().mean().item(),
+        "pred_pos_rate": preds.float().mean().item(),
+        "acc_pos": (preds[y == 1] == 1).float().mean().item(),
+        "acc_neg": (preds[y == 0] == 0).float().mean().item(),
+        "pad_argmax_rate": (logits.argmax(-1) == PAD).float().mean().item(),
+    }
 
 def subspace_overlap(A, B):
     A = A / (A.norm(dim=1, keepdim=True) + 1e-8)
@@ -184,7 +220,12 @@ def subspace_overlap(A, B):
 # ------------------------------------------------------------------
 # Single seed
 # ------------------------------------------------------------------
-def run_seed(seed, device):
+def readout_alignment(model, B):
+    """Fraction of the class logit-difference direction (W_U[:,1]-W_U[:,0]) inside span(B)."""
+    d = (model.W_U[:, 1] - model.W_U[:, 0]).detach()
+    return ((B @ d).norm() / (d.norm() + 1e-12)).item()
+
+def run_seed(seed, device, max_steps=MAX_STEPS, min_steps=5000, results_dir=RESULTS_DIR):
     print(f"\n{'='*60}")
     print(f"SEED {seed} on {device}")
     print(f"{'='*60}")
@@ -199,24 +240,28 @@ def run_seed(seed, device):
     model = make_model(device).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
-    for step in range(MAX_STEPS):
+    # Balanced early-stop set: 512 per class from the (shuffled) held-out set.
+    x_es, y_es = balanced_subset(x_ho, y_ho, 512, seed + 30000)
+
+    for step in range(max_steps):
         model.train()
         idx = torch.randint(0, len(x_tr), (BATCH_SIZE,), device=device)
         logits = model(x_tr[idx])
         loss = F.cross_entropy(logits[:, -1], y_tr[idx])
         opt.zero_grad(); loss.backward(); opt.step()
 
-        if step % EVAL_EVERY == 0 or step == MAX_STEPS - 1:
-            acc_ho = evaluate(model, x_ho[:1024], y_ho[:1024])
+        if step % EVAL_EVERY == 0 or step == max_steps - 1:
+            acc_ho = evaluate(model, x_es, y_es)
             print(f"  step {step:5d}  loss {loss.item():.4f}  held_acc {acc_ho:.3f}")
-            if acc_ho > 0.90 and step > 5000:
+            if acc_ho > 0.90 and step > min_steps:
                 print("  → generalization reached")
                 break
 
     # Extract subspaces
     B_contrast = extract_contrastive_subspace(model, x_tr[:2048], x_ho[:2048])
     B_algo = extract_algorithmic_features(model, x_tr[:1024])
-    B_rand = torch.linalg.qr(torch.randn(K_DIMS, D_MODEL, device=device).T, mode="reduced")[0].T
+    g_rand = torch.Generator().manual_seed(seed + 40000)
+    B_rand = torch.linalg.qr(torch.randn(K_DIMS, D_MODEL, generator=g_rand).T.to(device), mode="reduced")[0].T
 
     # Causal evaluation
     acc_base = evaluate(model, x_ho, y_ho)
@@ -224,6 +269,11 @@ def run_seed(seed, device):
     acc_algo = evaluate(model, x_ho, y_ho, hook=make_cancel_hook(B_algo, coeff=2.0))
     acc_rand = evaluate(model, x_ho, y_ho, hook=make_cancel_hook(B_rand, coeff=2.0))
     overlap = subspace_overlap(B_contrast, B_algo)
+    hooks = {"base": None,
+             "contrastive": make_cancel_hook(B_contrast, coeff=2.0),
+             "algorithmic": make_cancel_hook(B_algo, coeff=2.0),
+             "random": make_cancel_hook(B_rand, coeff=2.0)}
+    stats = {k: prediction_stats(model, x_ho, y_ho, hook=h) for k, h in hooks.items()}
 
     print("\n=== Causal evaluation ===")
     print(f"Baseline:              {acc_base:.3f}")
@@ -231,6 +281,9 @@ def run_seed(seed, device):
     print(f"Cancel algorithmic:    {acc_algo:.3f}")
     print(f"Cancel random:         {acc_rand:.3f}")
     print(f"Overlap:               {overlap:.4f}")
+    for k, st in stats.items():
+        print(f"  {k:<12} acc {st['acc']:.3f}  pred_pos_rate {st['pred_pos_rate']:.3f}  "
+              f"pad_argmax {st['pad_argmax_rate']:.3f}")
 
     results = {
         "seed": seed,
@@ -239,18 +292,32 @@ def run_seed(seed, device):
         "acc_cancel_algorithmic": acc_algo,
         "acc_cancel_random": acc_rand,
         "overlap_contrastive_algo": overlap,
+        # extract_algorithmic_features regresses on 3 targets, so its subspace has
+        # rank <= 3 even though K_DIMS=8 is requested.
+        "k_contrastive": int(B_contrast.shape[0]),
+        "k_algorithmic": int(B_algo.shape[0]),
+        "k_random": int(B_rand.shape[0]),
+        "readout_alignment": {"contrastive": readout_alignment(model, B_contrast),
+                              "algorithmic": readout_alignment(model, B_algo),
+                              "random": readout_alignment(model, B_rand)},
+        "prediction_stats": stats,
+        "steps_trained": step + 1,
+        "metric": "argmax over class logits {0,1}; held-out shuffled; balanced early stop",
+        "device": str(device),
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
     # Save
-    with open(RESULTS_DIR / f"seed_{seed}.json", "w") as f:
+    results_dir = Path(results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    with open(results_dir / f"seed_{seed}.json", "w") as f:
         json.dump(results, f, indent=2)
     torch.save({
         "model_state": model.state_dict(),
         "B_contrast": B_contrast.cpu(),
         "B_algo": B_algo.cpu(),
         "B_rand": B_rand.cpu(),
-    }, RESULTS_DIR / f"seed_{seed}.pt")
+    }, results_dir / f"seed_{seed}.pt")
 
     return results
 
@@ -261,8 +328,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--cpu", action="store_true", help="force CPU even if CUDA is available")
+    parser.add_argument("--max_steps", type=int, default=MAX_STEPS)
+    parser.add_argument("--min_steps", type=int, default=5000,
+                        help="don't early-stop before this many steps")
+    parser.add_argument("--results_dir", default=str(RESULTS_DIR))
     args = parser.parse_args()
 
-    device = f"cuda:{args.gpu}"
-    torch.cuda.set_device(args.gpu)
-    run_seed(args.seed, device)
+    if torch.cuda.is_available() and not args.cpu:
+        device = f"cuda:{args.gpu}"
+        torch.cuda.set_device(args.gpu)
+    else:
+        device = "cpu"
+        print("CUDA not available (or --cpu): running on CPU")
+    run_seed(args.seed, device, max_steps=args.max_steps, min_steps=args.min_steps,
+             results_dir=args.results_dir)

@@ -28,14 +28,23 @@ RESULTS_DIR = Path("results_complement")
 RESULTS_DIR.mkdir(exist_ok=True)
 
 # ───────────────────────── Model & Data ─────────────────────────
-def make_model(seed=0):
+def infer_dims(state_dict):
+    """Read the architecture from a checkpoint so any width/depth loads."""
+    n_heads, d_model, d_head = state_dict["blocks.0.attn.W_Q"].shape
+    return dict(
+        d_model=d_model, n_heads=n_heads, d_head=d_head,
+        d_mlp=state_dict["blocks.0.mlp.W_in"].shape[1],
+        n_layers=1 + max(int(k.split(".")[1]) for k in state_dict if k.startswith("blocks.")),
+    )
+
+def make_model(seed=0, d_model=None, n_layers=None, n_heads=None, d_head=None, d_mlp=None):
     torch.manual_seed(seed)
     cfg = HookedTransformerConfig(
-        n_layers=N_LAYERS,
-        d_model=D_MODEL,
-        n_heads=N_HEADS,
-        d_head=D_HEAD,
-        d_mlp=D_MLP,
+        n_layers=n_layers or N_LAYERS,
+        d_model=d_model or D_MODEL,
+        n_heads=n_heads or N_HEADS,
+        d_head=d_head or D_HEAD,
+        d_mlp=d_mlp or D_MLP,
         act_fn="relu",
         normalization_type=None,
         d_vocab=P,
@@ -99,7 +108,8 @@ def extract_contrastive_subspace(model, train_x, test_x, layer=LAYER, k=K_DIMS, 
     return basis
 
 @torch.no_grad()
-def make_random_subspace(k=K_DIMS, d=D_MODEL):
+def make_random_subspace(k=K_DIMS, d=None):
+    d = d or D_MODEL
     A = torch.randn(k, d, device=DEVICE)
     Q, _ = torch.linalg.qr(A.T, mode="reduced")
     return Q.T
@@ -131,8 +141,13 @@ def run_complement_sweep(checkpoint_path, seed, max_rounds=3):
     print(f"\n===== Orthogonal Complement Sweep | seed {seed} =====")
     print(f"Loading {checkpoint_path}")
 
-    model = make_model(seed).to(DEVICE)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=DEVICE, weights_only=True))
+    global D_MODEL
+    state = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
+    dims = infer_dims(state)
+    D_MODEL = dims["d_model"]  # used by make_random_subspace
+    print(f"Checkpoint architecture: {dims}")
+    model = make_model(seed, **dims).to(DEVICE)
+    model.load_state_dict(state)
     model.eval()
 
     x, y = make_dataset()

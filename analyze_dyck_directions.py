@@ -20,7 +20,10 @@ import random
 from pathlib import Path
 import json
 import numpy as np
+import sys
+import argparse
 from collections import defaultdict
+from dyck_outcomes import classify
 
 # ------------------------------------------------------------------
 # Config
@@ -38,7 +41,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 RESULTS_DIR = Path("results_dyck_30seed")
 OUT_DIR = Path("analysis_dyck_directions")
-OUT_DIR.mkdir(exist_ok=True)
 
 OPEN, CLOSE, PAD = 0, 1, 2
 
@@ -209,17 +211,22 @@ def make_cancel_hook(B, coeff=2.0):
         return resid - coeff * delta
     return hook
 
-def evaluate(model, x, y, hook=None):
+def _preds(model, x, hook=None):
     model.eval()
     model.reset_hooks()
     if hook is not None:
         model.add_hook(f"blocks.{LAYER}.hook_resid_post", hook)
     with torch.no_grad():
-        logits = model(x.to(DEVICE))
-        preds = logits[:, -1].argmax(-1)
-        acc = (preds % 2 == y.to(DEVICE)).float().mean().item()
+        # compare only the two class logits (ids 0/1); see train_dyck_30seed.evaluate
+        preds = model(x.to(DEVICE))[:, -1, :2].argmax(-1)
     model.reset_hooks()
-    return acc
+    return preds
+
+def evaluate(model, x, y, hook=None):
+    return (_preds(model, x, hook) == y.to(DEVICE)).float().mean().item()
+
+def pred_pos_rate(model, x, hook=None):
+    return _preds(model, x, hook).float().mean().item()
 
 def core_cancellation_test(model, B_contrast, x_ho, y_ho):
     """Test whether top-1 or top-2 directions are already sufficient for collapse."""
@@ -258,10 +265,7 @@ def analyze_seed(seed):
     model.load_state_dict(data["model_state"])
     model.eval()
 
-    # Held-out set for causal tests
-    x_ho, y_ho = make_dataset(2000, max_len=28, max_depth=5, seed=seed + 9999)
-    x_ho, y_ho = x_ho.to(DEVICE), y_ho.to(DEVICE)
-    # rebuild properly
+    # Held-out set for causal tests (a fresh set, seed+9999; training used seed+10000)
     x_ho, y_ho = make_dataset(2000, max_len=28, max_depth=5, seed=seed + 9999)
     x_ho, y_ho = x_ho.to(DEVICE), y_ho.to(DEVICE)
 
@@ -269,7 +273,9 @@ def analyze_seed(seed):
     acc_base = evaluate(model, x_ho, y_ho)
     acc_full = evaluate(model, x_ho, y_ho, hook=make_cancel_hook(B_contrast, 2.0))
     print(f"  Baseline:     {acc_base:.3f}")
-    print(f"  Full cancel:  {acc_full:.3f}")
+    ppr_full = pred_pos_rate(model, x_ho, hook=make_cancel_hook(B_contrast, 2.0))
+    outcome = classify(acc_full, ppr_full, acc_base)
+    print(f"  Full cancel:  {acc_full:.3f}  (pred_pos_rate {ppr_full:.3f} -> {outcome})")
 
     # 2. Core cancellation
     core = core_cancellation_test(model, B_contrast, x_ho, y_ho)
@@ -297,12 +303,15 @@ def analyze_seed(seed):
         "seed": seed,
         "acc_base": acc_base,
         "acc_full_cancel": acc_full,
+        "pred_pos_rate_full_cancel": ppr_full,
+        "outcome_full_cancel": outcome,
         "core_cancel": core,
         "max_activating": max_acts,
         "probes": probes,
         "overlap_algo": overlap,
     }
 
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUT_DIR / f"analysis_seed_{seed}.json", "w") as f:
         json.dump(out, f, indent=2)
 
@@ -310,10 +319,19 @@ def analyze_seed(seed):
 
 # ------------------------------------------------------------------
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--results_dir", default=str(RESULTS_DIR))
+    ap.add_argument("--out_dir", default=str(OUT_DIR))
+    args = ap.parse_args()
+    RESULTS_DIR, OUT_DIR = Path(args.results_dir), Path(args.out_dir)
+
     # Analyze all seeds that finished (or a subset)
     seed_files = sorted(RESULTS_DIR.glob("seed_*.pt"))
     seeds = [int(p.stem.split("_")[1]) for p in seed_files]
     print(f"Found {len(seeds)} finished seeds: {seeds}")
+    if not seeds:
+        sys.exit(f"analyze_dyck_directions.py: no seed_*.pt checkpoints in {RESULTS_DIR.resolve()} "
+                 "(run train_dyck_30seed.py first, or pass --results_dir)")
 
     all_results = []
     for seed in seeds:
@@ -325,12 +343,17 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("SUMMARY – Core cancellation sufficiency")
     print("="*70)
-    print(f"{'Seed':<8} {'Base':>7} {'Full':>7} {'Top1':>7} {'Top2':>7} {'Top4':>7}")
+    print(f"{'Seed':<8} {'Base':>7} {'Full':>7} {'Top1':>7} {'Top2':>7} {'Top4':>7}  outcome")
     for r in all_results:
         c = r["core_cancel"]
         print(f"{r['seed']:<8} {r['acc_base']:>7.3f} {r['acc_full_cancel']:>7.3f} "
-              f"{c['top1']:>7.3f} {c['top2']:>7.3f} {c['top4']:>7.3f}")
+              f"{c['top1']:>7.3f} {c['top2']:>7.3f} {c['top4']:>7.3f}  {r['outcome_full_cancel']}")
+    counts = defaultdict(int)
+    for r in all_results:
+        counts[r["outcome_full_cancel"]] += 1
+    print("Outcomes (full cancel): " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
 
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUT_DIR / "summary.json", "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"\nAll analysis written to {OUT_DIR}/")
