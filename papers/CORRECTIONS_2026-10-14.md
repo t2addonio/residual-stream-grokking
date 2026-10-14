@@ -31,10 +31,9 @@ Paper files: v5 = `residual-stream-grokking/Residual_Stream_Component_Grokking.p
 - **Original (§2):** "Weight-norm clipping methods accelerate grokking by constraining decoder-row magnitudes; because those weights read from the residual stream, they necessarily interact with residual-stream geometry. Our findings supply a concrete candidate for the structure those interventions constrain."
 - **Original (§5):** "Independent weight-norm clipping results are consistent with having constrained related residual-stream geometry."
 - **Evidence:** The in-repo clipping scripts (`run_static_fixed.py`, `run_static_1.8.py`, `run_mild_envelope.py`, `run_weight_tracking.py`) had no held-out split and defined "grokked" as final training-batch loss < 0.8 [VR §4]; fixed in RSG PR #2. Re-run with a real test split, 27 runs (9 conditions × 3 seeds) [RR §2]: unclipped controls end ≥ 0.95 test acc in **6/9** (final mean **0.90**); clipped/envelope runs in **7/18** (final mean **0.68**); Weight Envelope 0/3. No grokking delay: every run memorizes by step 500 and first reaches ≥ 0.95 by step 2000–3500 (one run 6500). All conditions, controls included, show repeated drops from ≈1.0 to ≈0.01 test accuracy and recover.
-- **Status:** **corrected** for the author's own clipping results (not supported); the citation to external clipping literature may stay but must not imply in-house support.
-- **Replacement (§2):** "Weight-norm clipping methods have been reported to accelerate grokking by constraining decoder-row magnitudes; because those weights read from the residual stream, they may interact with residual-stream geometry. Our own clipping experiments do not support an acceleration effect in this setting (see Erratum E3), so we do not claim a link."
-- **Replacement (§5):** delete the sentence, or replace with: "In our own setting, weight-norm clipping did not accelerate or stabilise generalisation (6/9 unclipped vs 7/18 clipped runs ended at ≥ 0.95 test accuracy), so we draw no connection between clipping and the component reported here."
-- **Note (unsure):** whether §2 cites only external work or the author's own scripts is not clear from the text. If only external work is meant, the minimal fix is to soften "accelerate" → "have been reported to accelerate" and drop "Our findings supply a concrete candidate…".
+- **Status:** **corrected.** These sentences describe the author's own clipping runs (confirmed by the author, 2026-10-14), so they are replaced, not softened.
+- **Replacement (§2, v5 p. 1 and v6 p. 4; replaces both sentences):** "In our own earlier experiments, weight-norm clipping appeared to accelerate grokking, but those runs had no held-out test set and judged a run as grokked when training loss fell below 0.8. Re-run with a held-out split (27 runs; 3 seeds per condition), clipping did not help: unclipped controls ended grokked (test accuracy ≥ 0.95) in 6/9 runs (mean final test accuracy 0.90), against 7/18 clipped or envelope runs (mean 0.68). No condition showed a delay before generalization, and all conditions, controls included, were unstable. We therefore make no claim that clipping constrains the residual-stream structure reported here."
+- **Replacement (§5, v5 p. 8):** "Weight-norm clipping did not accelerate or stabilize generalization in our setting (6/9 unclipped vs 7/18 clipped or envelope runs ended at ≥ 0.95 test accuracy; mean final 0.90 vs 0.68), so we draw no link between clipping and this component."
 
 ### A3. "Grokking" framing on modular arithmetic — throughout (title, Abstract, §4)
 - **Evidence:** at 50/50 split, test accuracy already 1.000 at the first eval (step 2000) on mod-113 addition, d128/d256 [VR §4]; clipping setup (train_frac 0.3) reaches ≥ 0.95 by 2000–3500 with no delayed phase [RR §2].
@@ -89,7 +88,7 @@ Paper files: v5 = `residual-stream-grokking/Residual_Stream_Component_Grokking.p
 - **Replacement (add to §7 Reproducibility):** "Per-seed results for Figures 5, 6 and the GPT-2 dual/joint-4 runs are in `results/csv/`. The scripts that trained these models and produced Figures 5–9, and the single-direction and sequential GPT-2 data behind Figure 7 and the 0.15–0.28 range in §4.4, are not yet public; until they are, those results should be treated as unreproduced."
 
 ### B7. Weight-norm clipping — §2 Related Work, p. 4
-- Same text and correction as A2. **Status:** **corrected**.
+- Same original text and replacement as A2 §2 (author's own runs). v6 has no Discussion sentence on clipping. **Status:** **corrected**.
 
 ### B8. §4.1 modular-arithmetic random control — p. 6 ("matched random and Fourier controls do not") and Abstract p. 2
 - Same evidence as A1. **Status:** **corrected/weakened**. Replacement: "Phase cancellation drives held-out accuracy to chance; the Fourier control does not. A matched-rank random control is harmless at width 256 but substantially damaging at width 128 (≈0.40 mean accuracy at c=2), see v5 erratum."
@@ -155,7 +154,7 @@ Paper files: v5 = `residual-stream-grokking/Residual_Stream_Component_Grokking.p
 ---
 
 ## H. Items where the correct wording is uncertain (author decision)
-1. A2/B7: whether the clipping sentence refers to external literature or to the author's own runs.
+1. ~~A2/B7: whether the clipping sentence refers to external literature or to the author's own runs.~~ **Resolved 2026-10-14:** the author confirmed these were their own runs. A2/B7 now give corrected replacement text based on the 27-run rerun, not softened wording.
 2. B2: whether to keep the "illegal-prefix" max-activation and probe-orthogonality description of the Dyck direction (not re-checked).
 3. B3/B5: the readout-alignment caveat was measured for the 30-seed contrastive cancel only, not for the dual-interference 80/40/40 runs; applying it there is an inference.
 4. A1: Table 1 rows for p=257, sparse parity and sparse majority were not re-run; I left "~baseline" with a footnote rather than changing them.
