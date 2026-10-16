@@ -29,6 +29,8 @@ We then treat residual directions as signals and introduce phase rotation, magni
 
 Nanda et al. (2023) reverse-engineered the Fourier multiplication circuit for modular addition. Our results are compatible with an early memorization phase later removed by weight decay, but show that a distinct residual-stream structure persists and remains load-bearing after generalization.
 
+**Corrected (2026-10-14):** the PDF's §2 also states that weight-norm clipping accelerates grokking and that our findings supply a candidate for the structure clipping constrains. That referred to our own runs and is replaced by: In our own earlier experiments, weight-norm clipping appeared to accelerate grokking, but those runs had no held-out test set and judged a run as grokked when training loss fell below 0.8. Re-run with a held-out split (27 runs; 3 seeds per condition), clipping did not help: unclipped controls ended grokked (test accuracy ≥ 0.95) in 6/9 runs (mean final test accuracy 0.90), against 7/18 clipped or envelope runs (mean 0.68). No condition showed a delay before generalization, and all conditions, controls included, were unstable. We therefore make no claim that clipping constrains the residual-stream structure reported here.
+
 More recent residual-stream / SAE work has emphasized distributed and polysemantic features in pretrained language models. The transfer experiments sit at that intersection: a residual structure isolated in the clean algorithmic setting is asked how its causal geometry changes inside a pretrained LM residual stream.
 
 ## 3. Methods
